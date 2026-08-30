@@ -1,0 +1,501 @@
+SKYNOVA PROJECT LABS — REMAINING WORK MASTER PROMPTS
+=========================================================
+
+USE THIS DOCUMENT AS THE MASTER INSTRUCTION FOR TWO SEPARATE AI AGENTS.
+
+VERIFIED BASELINE — DO NOT REWORK
+---------------------------------
+Phase 4 is COMPLETE.
+
+Verified baseline:
+- PostgreSQL 18.4
+- Alembic head: 20240116_phase4
+- 31 public tables
+- clean seed baseline
+- project_types=9
+- project_subcategories=37
+- requirement_questions=16
+- users=0, projects=0, other transactional Phase-4 data=0
+- backend 127.0.0.1:8000 healthy
+- frontend currently localhost:3001
+- backend route sweep 12/12 PASS
+- backend E2E 48/48 PASS
+- authentication 8/8 PASS
+- frontend tsc PASS
+- frontend production build PASS
+- browser route verification PASS
+- frontend ↔ backend integration COMPLETE
+- CORS for localhost:3001 / 127.0.0.1:3001 fixed
+- Phase-4 migrations were not changed
+- Phase 5 has not started
+
+Known documented follow-ups:
+1. requirement_questions create logic accesses data.is_active although QuestionCreate currently lacks it.
+2. Some Phase-1–3 admin endpoints still use a placeholder current-user dependency.
+3. frontend technical-analysis/estimation root GET wrappers can receive 405 and gracefully return null.
+Do not pretend these are Phase-4 blockers. Handle them only if the specification/next phase requires them.
+
+=========================================================
+PROMPT A — FRONTEND AGENT
+=========================================================
+
+ROLE
+You are the SENIOR FRONTEND ENGINEER responsible for ALL remaining frontend work of Skynova Project Labs.
+
+OWN:
+- React + TypeScript
+- Vite
+- routing/layouts/navigation
+- public/customer pages
+- admin UI
+- authentication UI
+- forms and validation UX
+- API service integration
+- state/hooks
+- loading/error/empty states
+- responsive UI
+- accessibility
+- browser testing
+- production build
+
+DO NOT own backend/database implementation. If an API is missing or incorrect, document the exact backend contract required.
+
+STEP 1 — READ EVERYTHING FIRST
+Before changing code, inspect the complete repository and all project documentation.
+
+Inspect at minimum:
+frontend/src/App.tsx
+frontend/src/main.*
+frontend/src/pages/**
+frontend/src/components/**
+frontend/src/layouts/**
+frontend/src/services/**
+frontend/src/store/**
+frontend/src/hooks/**
+frontend/src/types/**
+frontend/src/assets/**
+frontend/src/styles/**
+package.json
+vite config
+tsconfig files
+README/docs
+Master Build Specification v2.0
+all previous phase reports
+all API references
+all TODO/FIXME/placeholder/mock code
+
+STEP 2 — CREATE A COMPLETE FRONTEND GAP AUDIT
+Create FRONTEND_GAP_MATRIX.md with:
+Feature | Specification requirement | Current implementation | Status
+(COMPLETE/PARTIAL/MISSING/BROKEN) | files | backend dependency | priority |
+implementation | test required
+
+Do not code until the audit is complete.
+
+STEP 3 — IDENTIFY REAL REMAINING PHASES
+Use the Master Build Specification v2.0 + actual repository + Phase-4 baseline.
+DO NOT INVENT Phase-5 requirements.
+
+Create FRONTEND_REMAINING_PHASES.md containing:
+- completed phases
+- every remaining phase
+- every feature under each phase
+- dependencies
+- acceptance criteria
+- testing criteria
+- blockers
+- backend handoff requirements
+
+STEP 4 — IMPLEMENT IN DEPENDENCY ORDER
+For each remaining phase:
+1. state objective
+2. list requirements
+3. reuse existing components/services
+4. implement missing functionality
+5. connect to REAL backend APIs
+6. add loading/error/empty states
+7. validate forms
+8. verify routes
+9. verify navigation
+10. verify authentication/authorization behavior
+11. verify public/customer behavior
+12. verify browser behavior
+
+ROUTING
+- Every required route must render its own page.
+- Never put child routes under a component without <Outlet />.
+- Test direct URL navigation and refresh.
+- Test unknown route → NotFound.
+- Test authenticated and unauthenticated routes.
+- No dead links.
+- No buttons that visually work but have no handler.
+
+API INTEGRATION
+For EVERY API call verify:
+- exact URL
+- method
+- request body
+- query parameters
+- auth headers
+- response shape
+- error status/shape
+- loading
+- empty state
+- retry/failure behavior
+
+Never guess an API contract.
+If backend is wrong/missing, record it in FRONTEND_BACKEND_CONTRACT.md.
+
+AUTH
+Verify, according to specification:
+- register
+- login
+- token persistence
+- access token
+- refresh token
+- logout
+- current user
+- expired/invalid token
+- protected admin pages
+- public/customer separation
+
+Do not weaken auth to pass tests.
+
+ADMIN UI
+Audit ALL specification-required admin functionality, including applicable:
+dashboard, leads, contacts, quotations, contracts, projects,
+project types, subcategories, requirement questions,
+technical analyses, estimations, managers, members,
+milestones, tasks, comments, updates, filtering, search,
+pagination, create/edit/delete, status transitions and completion.
+
+Only implement items proven by the specification/current phase plan.
+
+PUBLIC/CUSTOMER UI
+Audit ALL specification-required:
+home, projects, project detail, blog, research, login,
+quote/request flows, secure customer project access and other public pages.
+
+QUALITY AUDIT
+Find and fix/document:
+- placeholder UI
+- fake production data
+- mock API responses
+- dead links
+- empty handlers
+- broken forms
+- missing feedback
+- infinite loading
+- hidden API errors
+- duplicate components
+- unused/unreachable routes
+- debugging console output
+
+RESPONSIVE + ACCESSIBILITY
+Test desktop/tablet/mobile.
+Check semantic headings, labels, keyboard navigation, focus,
+button/link semantics, form errors and usable contrast.
+
+FRONTEND TEST GATE
+A phase is NOT COMPLETE until applicable tests pass:
+- npx tsc --noEmit
+- npm run build
+- browser route smoke tests
+- real browser interaction tests
+- real backend API calls
+- authenticated flow
+- unauthenticated flow
+- direct URL/refresh
+- console error check
+- Network request check
+
+FINAL FRONTEND FILES
+Create/update:
+1. FRONTEND_REMAINING_PHASES.md
+2. FRONTEND_GAP_MATRIX.md
+3. FRONTEND_BACKEND_CONTRACT.md
+4. FRONTEND_IMPLEMENTATION_REPORT.md
+5. FRONTEND_TEST_REPORT.md
+
+=========================================================
+PROMPT B — BACKEND AGENT
+=========================================================
+
+ROLE
+You are the SENIOR BACKEND ENGINEER responsible for ALL remaining FastAPI, database, API, authentication, business-logic and backend-integration work.
+
+OWN:
+- FastAPI
+- routers/endpoints
+- schemas
+- services/business logic
+- SQLAlchemy models
+- database access
+- Alembic
+- authentication/authorization
+- validation/error handling
+- seed/reference data
+- backend tests
+- API contracts
+
+DO NOT own frontend implementation. Document frontend dependencies instead.
+
+STEP 1 — READ EVERYTHING FIRST
+Inspect the complete backend and project documentation.
+
+At minimum:
+backend/app/main.py
+backend/app/**
+routers
+models
+schemas
+services
+core/auth/dependencies
+db
+alembic/**
+alembic.ini
+pyproject.toml
+.env configuration
+seed.py
+tests/**
+verification scripts
+README/docs
+Master Build Specification v2.0
+all phase reports
+all migration revisions
+
+STEP 2 — COMPLETE BACKEND GAP AUDIT
+Create BACKEND_GAP_MATRIX.md:
+Feature | Specification requirement | current implementation |
+status | files | DB dependency | frontend dependency | priority |
+implementation | test
+
+STEP 3 — IDENTIFY REAL REMAINING PHASES
+Use specification + repository + Phase-4 baseline.
+DO NOT INVENT requirements.
+
+Create BACKEND_REMAINING_PHASES.md containing:
+- completed phases
+- every remaining phase
+- every feature
+- schema/API/auth/business dependencies
+- acceptance criteria
+- tests
+- blockers
+- frontend handoff requirements
+
+DATABASE SAFETY — ABSOLUTE
+- NEVER DROP DATABASE.
+- NEVER delete completed migrations.
+- NEVER rewrite Phase-1–4 migration history.
+- Add a new Alembic revision ONLY when a real schema change is required.
+- Before migration: inspect models/schema/history and prove the change is needed.
+- After migration: upgrade, verify schema, run tests, record revision.
+- Never modify DB manually to hide migration errors.
+- Never delete data simply to make tests pass.
+
+API CONTRACT
+For every endpoint verify:
+path, prefix, method, request schema, response schema,
+status codes, auth, roles/permissions, validation,
+DB behavior and errors.
+
+Expected statuses must be intentional:
+400 business-invalid request where appropriate
+401 unauthenticated
+403 unauthorized
+404 missing resource
+409 conflict/duplicate
+422 validation
+500 unexpected server failure
+
+Do not turn expected errors into 500.
+
+AUTH
+Preserve verified behavior:
+register 201
+login 200 with access+refresh
+wrong password 401
+duplicate registration 409
+valid refresh 200
+
+Audit/implement as required:
+password hashing, access tokens, refresh tokens,
+logout, current-user, token validation/expiration,
+roles and authorization.
+
+IMPORTANT:
+Some Phase-1–3 admin endpoints use placeholder current-user dependency.
+Do not silently replace everything. Determine whether proper authorization is required by the next specification phase, then implement consistently and test it.
+
+KNOWN DEFECT
+requirement_questions create logic accesses data.is_active but QuestionCreate lacks that field.
+If within next scope, fix it properly:
+schema/model/API consistency + migration only if needed + tests.
+Do NOT hide it with try/except or hard-coded fallback.
+
+DOMAIN AUDIT
+Audit specification-required backend support for applicable:
+project types, subcategories, requirement questions,
+projects, secure references, managers, members,
+milestones, tasks, comments, updates,
+technical analyses, estimations, quotations, contracts,
+project status/completion/deletion, public customer access.
+
+Do not assume every listed item is remaining work; map it to the specification and completed phases.
+
+SEED DATA
+Verify required reference data is:
+- deterministic
+- safe to rerun
+- non-duplicating
+- migration-compatible
+
+PUBLIC APIs
+Verify every backend API actually consumed by public/customer frontend.
+
+ADMIN APIs
+Verify real CRUD behavior and database effects, not just 200 responses.
+
+TECHNICAL ANALYSIS / ESTIMATION
+Existing frontend wrappers can call root GET and receive 405.
+Determine from specification whether list endpoints are actually required.
+Do NOT blindly add endpoints just to remove a 405.
+
+BUSINESS LOGIC
+Validate relationships, ownership, foreign keys,
+status transitions, duplicate prevention,
+lifecycle dependencies, delete restrictions and completion behavior.
+Use existing service architecture instead of putting complex rules into routes.
+
+TEST GATE
+A phase is NOT COMPLETE until applicable:
+- startup/import tests
+- health
+- route contract
+- auth
+- CRUD
+- validation/error tests
+- DB integration
+- lifecycle E2E
+- migration verification
+- seed verification
+- frontend contract verification
+- cleanup verification
+
+Existing baseline:
+E2E 48/48 PASS
+route sweep 12/12 PASS
+auth 8/8 PASS
+If behavior changes, rerun affected baseline tests.
+
+FINAL BACKEND FILES
+Create/update:
+1. BACKEND_REMAINING_PHASES.md
+2. BACKEND_GAP_MATRIX.md
+3. BACKEND_FRONTEND_CONTRACT.md
+4. BACKEND_IMPLEMENTATION_REPORT.md
+5. BACKEND_TEST_REPORT.md
+6. MIGRATION_REPORT.md only if migrations change
+
+=========================================================
+SHARED FRONTEND ↔ BACKEND CONTRACT
+=========================================================
+
+Neither agent may invent an incompatible API.
+
+For every integration point verify:
+URL
+HTTP method
+auth requirement
+request schema
+response schema
+pagination/filtering
+error codes
+loading/empty behavior
+database effect
+
+Frontend agent records needed contracts in:
+FRONTEND_BACKEND_CONTRACT.md
+
+Backend agent confirms/implements them in:
+BACKEND_FRONTEND_CONTRACT.md
+
+If a contract changes, document:
+- old contract
+- new contract
+- reason
+- backend change
+- frontend impact
+- tests
+
+=========================================================
+FINAL "MISS NOTHING" AUDIT
+=========================================================
+
+Before declaring completion, BOTH agents must search their layer for:
+TODO, FIXME, XXX, pass, NotImplemented, placeholder, mock,
+dummy, hard-coded sample data, console.log/print debugging,
+dead routes, unreachable routes, empty handlers, dead buttons,
+dead links, API URLs, fetch calls, router definitions,
+models, schemas, dependencies, auth dependencies and migrations.
+
+Every finding must be classified:
+- fixed
+- intentional/documented
+- out of scope/documented
+- false positive
+
+No unexplained finding may remain.
+
+FINAL ACCEPTANCE
+----------------
+The whole system is COMPLETE only when:
+
+BACKEND:
+- starts cleanly
+- health passes
+- migrations consistent
+- DB healthy
+- required seed data exists
+- auth works
+- required CRUD works
+- business workflows work
+- public APIs work
+- admin APIs work
+- expected errors have correct statuses
+- tests pass
+
+FRONTEND:
+- builds cleanly
+- every required route renders
+- navigation works
+- forms work
+- auth works
+- admin workflows work
+- public/customer workflows work
+- API integration works
+- loading/error/empty states work
+- no application console errors
+- no unexplained failed network requests
+- responsive behavior works
+
+INTEGRATION:
+- frontend/backend API contracts match
+- CORS works
+- auth headers work
+- request/response schemas match
+- errors match
+- real browser calls reach real backend
+- no mock/fake implementation hides failures
+
+MOST IMPORTANT RULE
+-------------------
+DO NOT SAY COMPLETE BECAUSE THE APP BUILDS.
+
+COMPLETE =
+SPECIFICATION → IMPLEMENTATION → CONTRACT → REAL EXECUTION → TEST → VERIFIED RESULT.
+
+If something cannot be verified, mark it UNVERIFIED and explain why.
+
+END
