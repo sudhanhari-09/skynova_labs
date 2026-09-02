@@ -29,6 +29,7 @@ export interface AuthContextValue {
 }
 
 let authToken: string | null = null;
+let _refreshPromise: Promise<string | null> | null = null;
 
 // API client for authentication calls
 export async function apiRequest(
@@ -41,8 +42,9 @@ export async function apiRequest(
     ...(options.headers as Record<string, string> | undefined),
   };
 
-  if (authToken) {
-    headers.Authorization = `Bearer ${authToken}`;
+  const token = authToken || localStorage.getItem("access_token");
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
   }
 
   const response = await fetch(url, {
@@ -50,7 +52,62 @@ export async function apiRequest(
     headers,
   });
 
+  // Auto-refresh on 401 (skip for login/register/refresh endpoints to avoid loops)
+  if (response.status === 401 && !endpoint.startsWith("/auth/")) {
+    const refreshed = await _tryRefreshToken();
+    if (refreshed) {
+      headers.Authorization = `Bearer ${refreshed}`;
+      return fetch(url, { ...options, headers });
+    }
+  }
+
   return response;
+}
+
+async function _tryRefreshToken(): Promise<string | null> {
+  const refreshToken = localStorage.getItem("refresh_token");
+  if (!refreshToken) return null;
+
+  // Deduplicate concurrent refresh attempts
+  if (_refreshPromise) return _refreshPromise;
+
+  _refreshPromise = (async () => {
+    try {
+      const url = `${API_BASE_URL}/auth/refresh`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+      if (!res.ok) {
+        _clearAuthState();
+        return null;
+      }
+      const data = await res.json();
+      authToken = data.access_token;
+      localStorage.setItem("access_token", data.access_token);
+      if (data.refresh_token) {
+        localStorage.setItem("refresh_token", data.refresh_token);
+      }
+      return data.access_token as string;
+    } catch {
+      _clearAuthState();
+      return null;
+    } finally {
+      _refreshPromise = null;
+    }
+  })();
+
+  return _refreshPromise;
+}
+
+function _clearAuthState(): void {
+  authToken = null;
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
+  localStorage.removeItem("user_email");
+  // Dispatch a custom event so authStore can react
+  window.dispatchEvent(new CustomEvent("auth:unauthenticated"));
 }
 
 export async function login(email: string, password: string): Promise<User> {
@@ -737,11 +794,19 @@ export async function deleteProjectType(typeId: number): Promise<void> {
   }
 }
 
+function extractApiError(errorData: any): string {
+  if (typeof errorData?.detail === "string") return errorData.detail;
+  if (Array.isArray(errorData?.detail)) {
+    return errorData.detail.map((d: any) => d.msg || String(d)).join(". ");
+  }
+  return "An unexpected error occurred";
+}
+
 export async function listSubcategories(projectTypeId: number): Promise<ProjectSubcategorySummary[]> {
   const response = await apiRequest(`/admin/project-types/${projectTypeId}/subcategories?active_only=false`);
   if (!response.ok) {
     const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load subcategories");
+    throw new Error(extractApiError(errorData) || "Failed to load subcategories");
   }
   const data = await response.json();
   return Array.isArray(data) ? data : [];
@@ -757,7 +822,7 @@ export async function createSubcategory(
   });
   if (!response.ok) {
     const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create subcategory");
+    throw new Error(extractApiError(errorData) || "Failed to create subcategory");
   }
   return response.json();
 }

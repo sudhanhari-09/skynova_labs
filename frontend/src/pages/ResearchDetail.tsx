@@ -10,91 +10,118 @@ const ResearchDetail: React.FC = () => {
   useEffect(() => {
     fetchResearchBySlug(slug)
       .then(setItem)
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(String(e?.message || e || "Research not found")))
   }, [slug])
 
   if (error) {
     return (
-      <main className="min-h-screen bg-gray-50">
-        <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Research not found</h1>
-          <p className="text-gray-500 mb-6">{error}</p>
-          <Link to="/research" className="btn-primary">Back to Research</Link>
+      <div className="research-detail-page">
+        <div className="research-detail-hero">
+          <div className="research-detail-hero__inner">
+            <Link to="/research" className="research-detail-hero__back">← Back to Research</Link>
+            <h1 className="research-detail-hero__title">Research Not Found</h1>
+            <p className="research-detail-hero__abstract">{error}</p>
+          </div>
         </div>
-      </main>
+      </div>
     )
   }
 
   if (!item) {
     return (
-      <main className="min-h-screen bg-gray-50">
-        <div className="max-w-3xl mx-auto px-4 py-16">
-          <div className="h-6 bg-gray-200 rounded w-2/3 mb-4 animate-pulse" />
-          <div className="space-y-3">
-            {[1, 2, 3, 4].map((i) => <div key={i} className="h-3 bg-gray-100 rounded animate-pulse" />)}
+      <div className="research-detail-page">
+        <div className="research-detail-hero">
+          <div className="research-detail-hero__inner">
+            <div style={{ height: "0.75rem", background: "rgba(255,255,255,0.1)", borderRadius: 4, width: "30%", marginBottom: "1rem" }} />
+            <div style={{ height: "2rem", background: "rgba(255,255,255,0.1)", borderRadius: 4, width: "70%", marginBottom: "0.75rem" }} />
+            <div style={{ height: "1rem", background: "rgba(255,255,255,0.06)", borderRadius: 4, width: "50%" }} />
           </div>
         </div>
-      </main>
+      </div>
     )
   }
 
-  const fields: { label: string; value?: string | null }[] = [
+  const sections: { label: string; value?: string | null }[] = [
     { label: "Objectives", value: item.objectives },
     { label: "Methodology", value: item.methodology },
     { label: "Results", value: item.results },
-  ]
+  ].filter((f) => f.value)
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <article className="max-w-3xl mx-auto px-4 py-12">
-        <Link to="/research" className="text-sm text-blue-600 hover:underline">← Back to Research</Link>
-        <div className="flex flex-wrap items-center gap-2 mt-4 mb-2">
-          {item.category && <span className="text-xs uppercase tracking-wide text-blue-600 font-medium">{item.category}</span>}
-          {item.industry && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{item.industry}</span>}
-          {item.status && <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">{item.status}</span>}
+    <div className="research-detail-page">
+      {/* Hero */}
+      <header className="research-detail-hero">
+        <div className="research-detail-hero__inner">
+          <Link to="/research" className="research-detail-hero__back">← Back to Research</Link>
+          <div className="research-detail-hero__badges">
+            {item.category && <span className="research-detail-hero__badge">{item.category}</span>}
+            {item.industry && <span className="research-detail-hero__badge">{item.industry}</span>}
+            {item.status && <span className="research-detail-hero__badge">{item.status.replace(/_/g, " ")}</span>}
+          </div>
+          <h1 className="research-detail-hero__title">{item.title}</h1>
+          {item.abstract && <p className="research-detail-hero__abstract">{item.abstract}</p>}
         </div>
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">{item.title}</h1>
+      </header>
+
+      {/* Body */}
+      <div className="research-detail-body">
         {(item.start_date || item.end_date) && (
-          <div className="text-sm text-gray-500 mb-6">
-            {[item.start_date, item.end_date].filter(Boolean).join(" → ")}
+          <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1.5rem" }}>
+            {[item.start_date, item.end_date].filter(Boolean).map((d) => formatDate(d)).join(" → ")}
+          </p>
+        )}
+
+        {item.description && (
+          <div className="research-detail-section">
+            <h2 className="research-detail-section__title">Overview</h2>
+            <p className="research-detail-section__text">{item.description}</p>
           </div>
         )}
-        {item.abstract && <p className="text-lg text-gray-600 leading-relaxed mb-6">{item.abstract}</p>}
-        {item.description && (
-          <div className="prose prose-slate max-w-none text-gray-700 leading-relaxed whitespace-pre-line mb-6">{item.description}</div>
-        )}
-        {fields.filter((f) => f.value).map((f) => (
-          <section key={f.label} className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">{f.label}</h2>
-            <p className="text-gray-700 leading-relaxed whitespace-pre-line">{f.value}</p>
-          </section>
+
+        {sections.map((s) => (
+          <div key={s.label} className="research-detail-section">
+            <h2 className="research-detail-section__title">{s.label}</h2>
+            <p className="research-detail-section__text">{s.value}</p>
+          </div>
         ))}
-        {item.technologies.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-6">
+
+        {item.technologies && item.technologies.length > 0 && (
+          <div className="research-detail-tags">
             {item.technologies.map((t) => (
-              <span key={t} className="px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-xs font-medium">{t}</span>
+              <span key={t} className="research-detail-tag">{t}</span>
             ))}
           </div>
         )}
-        {(item.researchers && item.researchers.length > 0) && (
-          <div className="mt-8">
-            <h2 className="text-sm font-semibold text-gray-900 mb-2">Researchers</h2>
-            <div className="text-gray-600 text-sm">{item.researchers.join(", ")}</div>
+
+        {item.researchers && item.researchers.length > 0 && (
+          <div style={{ marginTop: "1.5rem" }}>
+            <h3 style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: "0.5rem" }}>Researchers</h3>
+            <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }}>{item.researchers.join(", ")}</p>
           </div>
         )}
-        {(item.publication_links && item.publication_links.length > 0) && (
-          <div className="mt-8">
-            <h2 className="text-sm font-semibold text-gray-900 mb-2">Publications</h2>
-            <ul className="list-disc list-inside text-gray-600 text-sm space-y-1">
+
+        {item.publication_links && item.publication_links.length > 0 && (
+          <div style={{ marginTop: "1.5rem" }}>
+            <h3 style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: "0.5rem" }}>Publications</h3>
+            <ul style={{ listStyle: "disc", paddingLeft: "1.25rem", fontSize: "0.9rem" }}>
               {item.publication_links.map((link, i) => (
-                <li key={i}><a href={link} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline break-all">{link}</a></li>
+                <li key={i} style={{ marginBottom: "0.25rem" }}>
+                  <a href={link} target="_blank" rel="noreferrer" style={{ color: "var(--brand-primary)", textDecoration: "underline" }}>
+                    {link}
+                  </a>
+                </li>
               ))}
             </ul>
           </div>
         )}
-      </article>
-    </main>
+      </div>
+    </div>
   )
+}
+
+function formatDate(d: string | null | undefined): string {
+  if (!d) return ""
+  return new Date(d).toLocaleDateString("en-US", { month: "short", year: "numeric" })
 }
 
 export default ResearchDetail

@@ -1,22 +1,14 @@
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useState, useMemo } from "react"
 import { Link } from "react-router-dom"
 import { usePageMeta } from "../hooks/usePageMeta"
-import { Spinner, StateError, EmptyState } from "../components/ui"
+import { Spinner, EmptyState } from "../components/ui"
 import { fetchJournalArticles, JournalArticle } from "../services/api"
-
-/**
- * Journal = long-form editorial and research thinking (thought leadership).
- * Distinct from the Build Log (actual project progress) and Blog.
- * Data is CMS/API-driven; a backend journal API is a documented dependency.
- */
-
-const sampleCategories = ["Research", "Engineering", "Product", "Industry", "Perspectives"]
 
 const Journal: React.FC = () => {
   usePageMeta({
     title: "Journal",
     description:
-      "Research and editorial thinking from Skynova Project Labs — on engineering, applied research, product development and technology trends.",
+      "Research and editorial thinking from SkyNova Project Labs — on engineering, applied research, product development and technology trends.",
     canonical: "/journal",
   })
 
@@ -37,58 +29,101 @@ const Journal: React.FC = () => {
     }
   }, [])
 
+  const categories = useMemo(() => {
+    const set = new Set(articles.map((a) => a.category).filter(Boolean) as string[])
+    return Array.from(set).sort()
+  }, [articles])
+
   return (
-    <main id="main" className="max-w-6xl mx-auto px-4 py-16">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">Journal</h1>
-      <p className="text-gray-600 mb-8 max-w-3xl">
-        Research and editorial perspectives from our team — the thinking behind the work.
-      </p>
-
-      <div className="flex flex-wrap gap-2 mb-8" role="group" aria-label="Journal categories">
-        {sampleCategories.map((cat) => (
-          <span key={cat} className="px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-sm">
-            {cat}
-          </span>
-        ))}
-      </div>
-
-      {loading && (
-        <div className="py-16">
-          <Spinner className="mx-auto" label="Loading journal…" />
+    <main id="main" className="min-h-screen" style={{ background: "var(--background)" }}>
+      {/* Hero */}
+      <section className="blog-hero">
+        <div className="blog-hero__inner">
+          <span className="blog-hero__eyebrow">Journal</span>
+          <h1 className="blog-hero__title">
+            Research &amp; Editorial Perspectives
+          </h1>
+          <p className="blog-hero__subtitle">
+            Long-form thinking from the SkyNova Project Labs team — on engineering,
+            applied research, product development and the technology decisions behind our work.
+          </p>
         </div>
-      )}
+      </section>
 
-      {!loading && error && (
-        <StateError
-          message="The journal API is not available yet, so articles cannot be loaded right now."
-        />
-      )}
+      <section style={{ padding: "2rem 1.5rem 4rem", maxWidth: 720, margin: "0 auto" }}>
+        {/* Category pills */}
+        {categories.length > 0 && (
+          <div className="blog-toolbar__filters" style={{ marginBottom: "1.5rem" }}>
+            {categories.map((cat) => (
+              <span key={cat} className="blog-filter-btn" style={{ cursor: "default" }}>
+                {cat}
+              </span>
+            ))}
+          </div>
+        )}
 
-      {!loading && !error && articles.length === 0 && (
-        <EmptyState
-          icon="✍️"
-          title="No journal articles published yet"
-          description="We're working on our first research and editorial pieces. Please check back soon."
-          action={{ label: "Explore our work", to: "/projects" }}
-        />
-      )}
+        {loading && (
+          <div className="py-16">
+            <Spinner className="mx-auto" label="Loading journal..." />
+          </div>
+        )}
 
-      {!loading && !error && articles.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {articles.map((article) => (
-            <Link key={article.id} to={`/journal/${article.slug}`} className="card flex flex-col group hover:border-blue-200 transition-colors">
-              <span className="text-xs uppercase tracking-wide text-blue-600 mb-2">{article.category}</span>
-              <h2 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600">{article.title}</h2>
-              {article.excerpt && <p className="text-sm text-gray-600 flex-1">{article.excerpt}</p>}
-              <div className="flex items-center gap-3 mt-4 text-xs text-gray-500">
-                {article.author && <span>{article.author}</span>}
-                {article.published_at && <span>{new Date(article.published_at).toLocaleDateString()}</span>}
-                {article.reading_minutes && <span>{article.reading_minutes} min read</span>}
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
+        {!loading && error && (
+          <div className="blog-empty">
+            <h2 className="blog-empty__title">Journal unavailable</h2>
+            <p className="blog-empty__text">
+              The journal API is not available right now. Please check back soon.
+            </p>
+          </div>
+        )}
+
+        {!loading && !error && articles.length === 0 && (
+          <EmptyState
+            icon="&#9998;"
+            title="No journal articles published yet"
+            description="We're working on our first research and editorial pieces. Please check back soon."
+            action={{ label: "Explore our work", to: "/projects" }}
+          />
+        )}
+
+        {!loading && !error && articles.length > 0 && (
+          <div className="blog-grid">
+            {articles.map((article) => (
+              <Link key={article.id} to={`/journal/${article.slug}`} className="blog-card">
+                <div className="blog-card__body">
+                  <div className="blog-card__meta-row">
+                    {article.category && (
+                      <span className="blog-card__category">{article.category}</span>
+                    )}
+                  </div>
+                  <h2 className="blog-card__title">{article.title}</h2>
+                  {article.excerpt && (
+                    <p className="blog-card__excerpt">{article.excerpt}</p>
+                  )}
+                  <div className="blog-card__footer">
+                    {article.author && <span className="blog-card__author">{article.author}</span>}
+                    {article.published_at && (
+                      <>
+                        <span className="blog-card__separator">&middot;</span>
+                        <span className="blog-card__date">
+                          {new Date(article.published_at).toLocaleDateString()}
+                        </span>
+                      </>
+                    )}
+                    {article.reading_minutes && (
+                      <>
+                        <span className="blog-card__separator">&middot;</span>
+                        <span className="blog-card__read-time">{article.reading_minutes} min read</span>
+                      </>
+                    )}
+                  </div>
+                  <span className="blog-card__link">Read Article &rarr;</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
     </main>
   )
 }

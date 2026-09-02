@@ -37,6 +37,12 @@ class ProjectTypeUpdate(BaseModel):
     display_order: Optional[int] = None
 
 
+class SubcategoryCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    slug: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+
+
 class ProjectSubcategoryResponse(BaseModel):
     id: int
     name: str
@@ -188,9 +194,7 @@ async def list_subcategories(
 @router.post("/{type_id}/subcategories", response_model=ProjectSubcategoryResponse, status_code=status.HTTP_201_CREATED)
 async def create_subcategory(
     type_id: int,
-    name: str = ...,
-    slug: str = ...,
-    description: Optional[str] = None,
+    data: SubcategoryCreate,
     db: Session = Depends(get_db),
 ):
     """Create a subcategory under a project type."""
@@ -204,7 +208,7 @@ async def create_subcategory(
     
     # Check if slug already exists under this project type
     existing = db.query(ProjectSubcategory).filter(
-        ProjectSubcategory.slug == slug,
+        ProjectSubcategory.slug == data.slug,
         ProjectSubcategory.project_type_id == type_id
     ).first()
     if existing:
@@ -214,10 +218,10 @@ async def create_subcategory(
         )
     
     subcategory = ProjectSubcategory(
-        name=name,
-        slug=slug,
+        name=data.name,
+        slug=data.slug,
         project_type_id=type_id,
-        description=description,
+        description=data.description,
         is_active=True,
         display_order=0,
     )

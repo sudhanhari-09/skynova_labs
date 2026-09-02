@@ -53,14 +53,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (!token) {
         setIsLoading(false)
+        setLoginStatus("unauthenticated")
         return
       }
 
-      // Step 1: Validate the stored token against the backend.
-      // This checks expiry, revocation, and user existence server-side.
       let validatedUser = await validateToken()
 
-      // Step 2: If the access token is invalid/expired, attempt a refresh.
       if (!validatedUser) {
         try {
           await refreshAccessToken()
@@ -77,7 +75,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(validatedUser)
         setLoginStatus("authenticated")
       } else {
-        // Token is invalid and refresh failed — clear everything.
         setAuthToken(null)
         localStorage.removeItem("access_token")
         localStorage.removeItem("refresh_token")
@@ -90,8 +87,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     restoreSession()
 
+    const handleUnauthenticated = () => {
+      setUser(null)
+      setLoginStatus("unauthenticated")
+    }
+    window.addEventListener("auth:unauthenticated", handleUnauthenticated)
+
     return () => {
       cancelled = true
+      window.removeEventListener("auth:unauthenticated", handleUnauthenticated)
     }
   }, [])
 

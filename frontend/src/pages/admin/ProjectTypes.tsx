@@ -26,6 +26,8 @@ const ProjectTypesAdmin: React.FC = () => {
   const [subsLoading, setSubsLoading] = useState(false)
   const [newSub, setNewSub] = useState({ name: "", slug: "", description: "" })
   const [subError, setSubError] = useState<string | null>(null)
+  const [subSaving, setSubSaving] = useState(false)
+  const [subFormErrors, setSubFormErrors] = useState<Record<string, string>>({})
 
   const load = async () => {
     setLoading(true)
@@ -96,6 +98,7 @@ const ProjectTypesAdmin: React.FC = () => {
     setSubs([])
     setNewSub({ name: "", slug: "", description: "" })
     setSubError(null)
+    setSubFormErrors({})
     try {
       setSubsLoading(true)
       setSubs(await listSubcategories(t.id))
@@ -106,19 +109,32 @@ const ProjectTypesAdmin: React.FC = () => {
     }
   }
 
-  const addSub = async () => {
-    if (!subsFor) return
-    if (!newSub.name.trim() || !newSub.slug.trim()) {
-      setSubError("Name and slug are required.")
-      return
-    }
+  const addSub = () => {
+    setNewSub({ name: "", slug: "", description: "" })
+    setSubFormErrors({})
     setSubError(null)
+  }
+
+  const saveSub = async () => {
+    if (!subsFor) return
+    const errs: Record<string, string> = {}
+    if (!newSub.name.trim()) errs.name = "Name is required."
+    if (!newSub.slug.trim()) errs.slug = "Slug is required."
+    else if (!/^[a-z0-9-]+$/.test(newSub.slug)) errs.slug = "Slug must be lowercase letters, numbers and dashes."
+    setSubFormErrors(errs)
+    if (Object.keys(errs).length > 0) return
+
+    setSubError(null)
+    setSubSaving(true)
     try {
       await createSubcategory(subsFor.id, newSub)
       setNewSub({ name: "", slug: "", description: "" })
+      setSubFormErrors({})
       setSubs(await listSubcategories(subsFor.id))
     } catch (e: any) {
       setSubError(e.message || "Could not create subcategory.")
+    } finally {
+      setSubSaving(false)
     }
   }
 
@@ -230,6 +246,12 @@ const ProjectTypesAdmin: React.FC = () => {
           onClose={() => setSubsFor(null)}
           title={subsFor ? `Subcategories — ${subsFor.name}` : "Subcategories"}
           width="640px"
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setSubsFor(null)} disabled={subSaving}>Close</Button>
+              <Button onClick={saveSub} loading={subSaving} disabled={subSaving}>Save Changes</Button>
+            </>
+          }
         >
           {subError && <Alert className="mb-4">{subError}</Alert>}
           {subsLoading ? (
@@ -251,8 +273,16 @@ const ProjectTypesAdmin: React.FC = () => {
           )}
           <div className="border-t border-gray-100 pt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-              <Input placeholder="Name" value={newSub.name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewSub((f) => ({ ...f, name: e.target.value }))} />
-              <Input placeholder="Slug" value={newSub.slug} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewSub((f) => ({ ...f, slug: e.target.value }))} />
+              <div>
+                <Input placeholder="Name" value={newSub.name} invalid={!!subFormErrors.name}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewSub((f) => ({ ...f, name: e.target.value }))} />
+                <FieldError>{subFormErrors.name}</FieldError>
+              </div>
+              <div>
+                <Input placeholder="Slug" value={newSub.slug} invalid={!!subFormErrors.slug}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewSub((f) => ({ ...f, slug: e.target.value }))} />
+                <FieldError>{subFormErrors.slug}</FieldError>
+              </div>
             </div>
             <Textarea rows={2} placeholder="Description (optional)" value={newSub.description}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewSub((f) => ({ ...f, description: e.target.value }))} />

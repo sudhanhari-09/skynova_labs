@@ -1,26 +1,22 @@
 ﻿import React, { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import {
-  fetchAchievements,
-  fetchExperiments,
-  fetchIndustries,
-  fetchJournalArticles,
-  fetchPartners,
   fetchPublicSite,
-  fetchResearch,
   fetchServices,
-  fetchTechnologies,
+  fetchResearch,
+  fetchExperiments,
+  fetchJournalArticles,
   fetchTestimonials,
-  Industry,
-  JournalArticle,
+  fetchAchievements,
+  fetchPartners,
   Service,
-  Technology,
+  JournalArticle,
 } from "../services/api"
 import { Skeleton } from "../components/ui"
 
 const focusAreas = [
   {
-    id: "r",
+    icon: "🔬",
     title: "Research",
     description:
       "Applied research across software engineering, AI and emerging technologies — validating ideas before they become products.",
@@ -28,7 +24,7 @@ const focusAreas = [
     cta: "Explore research",
   },
   {
-    id: "e",
+    icon: "⚗️",
     title: "Experiments",
     description:
       "Hands-on prototypes and proof-of-concepts that de-risk new technology before production investment.",
@@ -36,7 +32,7 @@ const focusAreas = [
     cta: "See experiments",
   },
   {
-    id: "p",
+    icon: "🚀",
     title: "Product Engineering",
     description:
       "Web, mobile, AI/ML and automation solutions taken from discovery through estimation to disciplined delivery.",
@@ -46,32 +42,32 @@ const focusAreas = [
 ]
 
 const Home: React.FC = () => {
-  const [hero, setHero] = useState({ eyebrow: "Technology Research & Development", title: "We turn ambitious ideas into production-ready products.", subtitle: "SkyNova Project Labs is the innovation engine of SkyNova — combining research, experimentation and disciplined engineering to build software that solves real problems." })
+  const [hero, setHero] = useState({
+    eyebrow: "Technology Research & Development",
+    title: "We turn ambitious ideas into production-ready products.",
+    subtitle: "SkyNova Project Labs is the innovation engine of SkyNova — combining research, experimentation and disciplined engineering to build software that solves real problems.",
+  })
   const [services, setServices] = useState<Service[]>([])
-  const [technologies, setTechnologies] = useState<Technology[]>([])
-  const [industries, setIndustries] = useState<Industry[]>([])
   const [research, setResearch] = useState<any[]>([])
   const [experiments, setExperiments] = useState<any[]>([])
   const [blog, setBlog] = useState<JournalArticle[]>([])
   const [testimonials, setTestimonials] = useState<any[]>([])
-  const [partners, setPartners] = useState<any[]>([])
   const [achievements, setAchievements] = useState<any[]>([])
+  const [partners, setPartners] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let active = true
     ;(async () => {
-      const [site, svc, tech, ind, res, exp, b, ts, p, ac] = await Promise.all([
+      const [site, svc, res, exp, b, ts, ac, p] = await Promise.all([
         fetchPublicSite().catch(() => null),
         fetchServices().catch(() => []),
-        fetchTechnologies().catch(() => []),
-        fetchIndustries().catch(() => []),
         fetchResearch().catch(() => []),
         fetchExperiments().catch(() => []),
         fetchJournalArticles().catch(() => []),
         fetchTestimonials().catch(() => []),
-        fetchPartners().catch(() => []),
         fetchAchievements().catch(() => []),
+        fetchPartners().catch(() => []),
       ])
       if (!active) return
       if (site?.settings) {
@@ -83,19 +79,15 @@ const Home: React.FC = () => {
         }))
       }
       setServices(svc)
-      setTechnologies(tech)
-      setIndustries(ind)
       setResearch(res)
       setExperiments(exp)
       setBlog(b)
       setTestimonials(ts)
-      setPartners(p)
       setAchievements(ac)
+      setPartners(p)
       setLoading(false)
     })()
-    return () => {
-      active = false
-    }
+    return () => { active = false }
   }, [])
 
   const serviceCards: any[] = services.length > 0 ? services : focusAreas
@@ -133,9 +125,9 @@ const Home: React.FC = () => {
         </section>
       ) : (
         <>
-          {/* Services */}
-          <section className="max-w-7xl mx-auto px-4 py-16" aria-labelledby="services-heading">
-            <h2 id="services-heading" className="text-3xl font-bold text-gray-900 mb-2">
+          {/* What We Do */}
+          <section className="max-w-7xl mx-auto px-4 py-16" aria-labelledby="what-we-do">
+            <h2 id="what-we-do" className="text-3xl font-bold text-gray-900 mb-2">
               What we do
             </h2>
             <p className="text-gray-600 mb-8 max-w-3xl">
@@ -149,19 +141,6 @@ const Home: React.FC = () => {
                     {s.icon && <span className="text-2xl" aria-hidden="true">{s.icon}</span>}
                   </div>
                   <p className="text-gray-600 leading-relaxed flex-1">{s.description}</p>
-                  {s.starting_price != null && s.starting_price > 0 && (
-                    <p className="mt-3 text-sm font-medium text-blue-600">
-                      From ${Number(s.starting_price).toLocaleString()}
-                      {s.pricing_model ? ` (${s.pricing_model})` : ""}
-                    </p>
-                  )}
-                  {s.features && s.features.length > 0 && (
-                    <ul className="mt-3 text-sm text-gray-600 list-disc list-inside space-y-1">
-                      {s.features.slice(0, 4).map((f: string, fi: number) => (
-                        <li key={fi}>{f}</li>
-                      ))}
-                    </ul>
-                  )}
                   <Link to={s.to || (s.slug ? `/services/${s.slug}` : "/quote")} className="btn-link mt-4 self-start inline-flex items-center gap-1">
                     {s.cta || "Learn more"} <span aria-hidden="true">→</span>
                   </Link>
@@ -170,47 +149,7 @@ const Home: React.FC = () => {
             </div>
           </section>
 
-          {/* Technologies + industries strip */}
-          {(technologies.length > 0 || industries.length > 0) && (
-            <section className="bg-gray-50" aria-labelledby="stack-heading">
-              <div className="max-w-7xl mx-auto px-4 py-16">
-                <h2 id="stack-heading" className="text-3xl font-bold text-gray-900 mb-2">
-                  Our stack &amp; markets
-                </h2>
-                <p className="text-gray-600 mb-8 max-w-3xl">
-                  The tools we build with, and the industries we solve problems for.
-                </p>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                  {technologies.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">Technologies</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {technologies.map((t) => (
-                          <span key={t.id} className="border border-gray-200 rounded-full px-3 py-1 text-sm bg-white">
-                            {t.name}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {industries.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">Industries</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {industries.map((ind) => (
-                          <span key={ind.id} className="border border-blue-200 bg-blue-50 text-blue-800 rounded-full px-3 py-1 text-sm">
-                            {ind.name}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Pipeline strip */}
+          {/* Innovation Pipeline */}
           <section className="bg-slate-900 text-white" aria-labelledby="pipeline-heading">
             <div className="max-w-7xl mx-auto px-4 py-16">
               <h2 id="pipeline-heading" className="text-3xl font-bold mb-2">
@@ -239,16 +178,19 @@ const Home: React.FC = () => {
           {/* Latest from the lab */}
           {(research.length > 0 || experiments.length > 0 || blog.length > 0) && (
             <section className="max-w-7xl mx-auto px-4 py-16" aria-labelledby="lab-heading">
-              <h2 id="lab-heading" className="text-3xl font-bold text-gray-900 mb-8">
+              <h2 id="lab-heading" className="text-3xl font-bold text-gray-900 mb-2">
                 Latest from the lab
               </h2>
+              <p className="text-gray-600 mb-8 max-w-3xl">
+                Recent work from our research, experiments and engineering teams.
+              </p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {research.slice(0, 1).map((r) => (
                   <article key={r.id} className="card flex flex-col">
                     <span className="text-xs font-semibold uppercase tracking-wide text-blue-600 mb-2">Research</span>
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">{r.title}</h3>
                     {r.abstract && <p className="text-gray-600 text-sm leading-relaxed flex-1">{r.abstract}</p>}
-                    {r.status && <span className="mt-3 text-xs text-gray-500">{r.status}</span>}
+                    {r.status && <span className="mt-3 text-xs text-gray-500">{r.status.replace(/_/g, " ")}</span>}
                     <Link to={`/research/${r.slug}`} className="btn-link mt-3 self-start inline-flex items-center gap-1">
                       Read more <span aria-hidden="true">→</span>
                     </Link>
@@ -256,10 +198,10 @@ const Home: React.FC = () => {
                 ))}
                 {experiments.slice(0, 1).map((e) => (
                   <article key={e.id} className="card flex flex-col">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-blue-600 mb-2">Experiment</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-emerald-600 mb-2">Experiment</span>
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">{e.title}</h3>
                     {e.objective && <p className="text-gray-600 text-sm leading-relaxed flex-1">{e.objective}</p>}
-                    {e.status && <span className="mt-3 text-xs text-gray-500">{e.status}</span>}
+                    {e.status && <span className="mt-3 text-xs text-gray-500">{e.status.replace(/_/g, " ")}</span>}
                     <Link to={`/experiments/${e.slug}`} className="btn-link mt-3 self-start inline-flex items-center gap-1">
                       Read more <span aria-hidden="true">→</span>
                     </Link>
@@ -267,7 +209,7 @@ const Home: React.FC = () => {
                 ))}
                 {blog.slice(0, 1).map((b) => (
                   <article key={b.id} className="card flex flex-col">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-blue-600 mb-2">Journal</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-purple-600 mb-2">Blog</span>
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">{b.title}</h3>
                     {b.excerpt && <p className="text-gray-600 text-sm leading-relaxed flex-1">{b.excerpt}</p>}
                     {b.category && <span className="mt-3 text-xs text-gray-500">{b.category}</span>}
@@ -276,6 +218,11 @@ const Home: React.FC = () => {
                     </Link>
                   </article>
                 ))}
+              </div>
+              <div className="flex flex-wrap gap-3 mt-8">
+                <Link to="/research" className="btn-secondary text-sm">All Research →</Link>
+                <Link to="/experiments" className="btn-secondary text-sm">All Experiments →</Link>
+                <Link to="/blog" className="btn-secondary text-sm">All Blog Posts →</Link>
               </div>
             </section>
           )}
@@ -293,8 +240,7 @@ const Home: React.FC = () => {
                       <blockquote className="text-gray-700 leading-relaxed">"{t.content}"</blockquote>
                       <figcaption className="mt-4 text-sm">
                         <span className="font-semibold text-gray-900">{t.name}</span>
-                        {t.role && <span className="text-gray-500"> — {t.role}</span>}
-                        {t.company && <span className="text-gray-500">, {t.company}</span>}
+                        {t.company && <span className="text-gray-500"> — {t.company}</span>}
                       </figcaption>
                     </figure>
                   ))}
@@ -316,7 +262,7 @@ const Home: React.FC = () => {
                           <span className="text-blue-600 mt-1" aria-hidden="true">◆</span>
                           <div>
                             <p className="font-medium text-gray-900">{a.title}</p>
-                            {a.metric && <p className="text-sm text-gray-500">{a.metric}</p>}
+                            {a.description && <p className="text-sm text-gray-500">{a.description}</p>}
                           </div>
                         </li>
                       ))}
@@ -330,7 +276,6 @@ const Home: React.FC = () => {
                       {partners.slice(0, 5).map((p) => (
                         <li key={p.id} className="flex items-center justify-between border-b border-gray-100 pb-3">
                           <span className="font-medium text-gray-800">{p.name}</span>
-                          {p.partner_type && <span className="text-xs text-gray-500">{p.partner_type}</span>}
                         </li>
                       ))}
                     </ul>
