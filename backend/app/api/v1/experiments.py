@@ -1,7 +1,7 @@
 """Experiments (spec §40 R&D pipeline) with public + admin endpoints."""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -9,6 +9,7 @@ from app.db import get_db
 from app.api.deps import get_current_user_dict
 from app.models.spec import Experiment
 from app.services.audit import log_action
+from app.services.validation import validate_name, validate_slug
 
 
 router = APIRouter(prefix="/experiments", tags=["experiments"])
@@ -32,6 +33,18 @@ class ExperimentPayload(BaseModel):
     is_public: bool = True
     project_id: Optional[int] = None
     research_ids: Optional[List[int]] = None
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, v):
+        return validate_name(v)
+
+    @field_validator("slug")
+    @classmethod
+    def validate_slug_field(cls, v):
+        if v is None:
+            return v
+        return validate_slug(v)
 
 
 def _serialize(e: Experiment) -> dict:

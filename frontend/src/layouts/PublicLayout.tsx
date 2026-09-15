@@ -6,11 +6,54 @@ import { Menu, X } from "../components/icons"
 import Logo from "../components/Logo"
 import ScrollRestoration from "../components/ScrollRestoration"
 
+// The five independent public sections. These are the canonical routes every
+// site visitor must be able to reach from the header.
+const coreNav: { to: string; label: string }[] = [
+  { to: "/", label: "Home" },
+  { to: "/projects", label: "Projects" },
+  { to: "/research", label: "Research" },
+  { to: "/experiments", label: "Experiments" },
+  { to: "/blog", label: "Blog" },
+]
+
+// The legacy/CMS navigation rows referenced Projects/Research/Experiments as
+// anchor sections on the Home page (e.g. "/#projects") and About as a CMS
+// page route that does not exist in the React Router table. Normalize those
+// URLs to the real independent routes so header links navigate directly.
+const NAV_URL_FIXUP: Record<string, string> = {
+  "/#projects": "/projects",
+  "/#research": "/research",
+  "/#experiments": "/experiments",
+  "/#blog": "/blog",
+  "/pages/about-us": "/about",
+}
+
+// The public Contact feature has been removed from the site. CMS navigation
+// rows may still reference it, so any Contact item coming from the backend is
+// dropped here to keep the public header, mobile menu and footer free of
+// Contact links (there is no /contact route to navigate to).
+function isContactNavItem(item: { url: string; label: string }): boolean {
+  return /contact/i.test(item.url || "") || /contact/i.test(item.label || "")
+}
+
+function normalizeNavUrl(url: string): string {
+  return NAV_URL_FIXUP[url] ?? url
+}
+
 const navGroups: { label: string; items: { to: string; label: string }[] }[] = [
+  {
+    label: "Main",
+    items: [
+      { to: "/", label: "Home" },
+      { to: "/projects", label: "Projects" },
+      { to: "/research", label: "Research" },
+      { to: "/experiments", label: "Experiments" },
+      { to: "/blog", label: "Blog" },
+    ],
+  },
   {
     label: "Work",
     items: [
-      { to: "/projects", label: "Projects" },
       { to: "/solutions", label: "Solutions" },
       { to: "/products", label: "Products" },
     ],
@@ -18,8 +61,6 @@ const navGroups: { label: string; items: { to: string; label: string }[] }[] = [
   {
     label: "Innovation",
     items: [
-      { to: "/research", label: "Research" },
-      { to: "/experiments", label: "Experiments" },
       { to: "/innovation-pipeline", label: "Innovation Pipeline" },
       { to: "/build-log", label: "Build Log" },
     ],
@@ -28,7 +69,6 @@ const navGroups: { label: string; items: { to: string; label: string }[] }[] = [
     label: "Learn",
     items: [
       { to: "/journal", label: "Journal" },
-      { to: "/blog", label: "Blog" },
     ],
   },
   {
@@ -41,14 +81,9 @@ const navGroups: { label: string; items: { to: string; label: string }[] }[] = [
   },
 ]
 
-// Curated links shown in the desktop header nav (compact).
-const desktopNav = [
-  { to: "/projects", label: "Projects" },
-  { to: "/solutions", label: "Solutions" },
-  { to: "/products", label: "Products" },
-  { to: "/journal", label: "Journal" },
-  { to: "/about", label: "About" },
-]
+// Curated links shown in the desktop header nav (compact) when the backend
+// has not published any header navigation items.
+const desktopNav = coreNav
 
 const PublicLayout: React.FC = () => {
   const { isAuthenticated, logout } = useAuth()
@@ -76,11 +111,37 @@ const PublicLayout: React.FC = () => {
     }
   }, [])
 
-  const desktopItems = siteNav.length > 0
-    ? siteNav.map((n) => ({ to: n.url, label: n.label })).slice(0, 5)
-    : desktopNav
+  // Build the desktop nav from the backend config but always guarantee the
+  // five independent sections appear in a stable order. URLs that legacy CMS
+  // rows stored as Home-page anchors are normalized to their real routes.
+  const desktopItems = (() => {
+    const mapped = siteNav.length > 0
+      ? siteNav
+          .filter((n) => !isContactNavItem(n))
+          .map((n) => ({ to: normalizeNavUrl(n.url), label: n.label }))
+      : desktopNav
+    const result: { to: string; label: string }[] = []
+    const seen = new Set<string>()
+    for (const item of coreNav) {
+      const match = mapped.find((m) => m.to === item.to) ?? item
+      result.push(match)
+      seen.add(item.to)
+    }
+    for (const m of mapped) {
+      if (!seen.has(m.to)) {
+        result.push(m)
+        seen.add(m.to)
+      }
+    }
+    return result.slice(0, 8)
+  })()
   const mobileGroups = siteNav.length > 0
-    ? [{ label: "Menu", items: siteNav.flatMap((n) => [{ to: n.url, label: n.label }, ...(n.children ?? []).map((c) => ({ to: c.url, label: c.label }))]) }]
+    ? [{
+        label: "Menu",
+        items: siteNav
+          .filter((n) => !isContactNavItem(n))
+          .flatMap((n) => [{ to: n.url, label: n.label }, ...(n.children ?? []).map((c) => ({ to: c.url, label: c.label }))]),
+      }]
     : navGroups
 
   // Lock body scroll and manage focus while the mobile menu is open.
@@ -214,9 +275,11 @@ const PublicLayout: React.FC = () => {
           <div>
             <h4>Explore</h4>
             <Link to="/projects">Projects</Link>
+            <Link to="/research">Research</Link>
+            <Link to="/experiments">Experiments</Link>
+            <Link to="/blog">Blog</Link>
             <Link to="/solutions">Solutions</Link>
             <Link to="/products">Products</Link>
-            <Link to="/innovation-pipeline">Innovation Pipeline</Link>
             <Link to="/journal">Journal</Link>
           </div>
           <div>

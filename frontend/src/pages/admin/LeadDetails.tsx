@@ -3,6 +3,8 @@ import { useAuth } from "../../store/authStore"
 import { useParams, useNavigate } from "react-router-dom"
 import { Table, TableHeader, TableRow, TableCell, Button, Badge, Spinner, EmptyState, Tabs, Tab, TabsList, TabsTrigger, TabsContent } from "../../components/ui"
 import { fetchLeadDetail, fetchTechnicalAnalysis, fetchEstimation, listQuotations, getQuotation, listContracts, getContract } from "../../services/api"
+import { formatDate } from "../../utils/date"
+import { fmtMoney } from "../../utils/currency"
 
 const LeadDetails: React.FC = () => {
   const { isAuthenticated } = useAuth()
@@ -151,7 +153,7 @@ const LeadDetails: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Created</p>
-                  <p className="font-medium">{lead.created_at?.toLocaleDateString()}</p>
+                  <p className="font-medium">{formatDate(lead.created_at)}</p>
                 </div>
               </div>
             </div>
@@ -284,7 +286,7 @@ const LeadDetails: React.FC = () => {
                         v{q.version} | {q.status}
                       </div>
                       <div className="mt-1 text-green-600">
-                        Total: ${q.total || 0}
+                        Total: {fmtMoney(q.total || 0)}
                       </div>
                     </div>
                   ))}

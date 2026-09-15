@@ -19,8 +19,9 @@ import {
   Skeleton,
   StateError,
 } from "../../components/ui"
+import { formatINR } from "../../utils/currency"
 
-const money = (v?: number | null) => (v == null ? "—" : `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
+const money = (v?: number | null) => (v == null ? "\u2014" : formatINR(v))
 
 const DashboardView: React.FC<{ data: AnalyticsDashboard | null }> = ({ data }) => {
   if (!data) return <Skeleton className="h-64 w-full" />
@@ -175,7 +176,7 @@ const Analytics: React.FC = () => {
       setFinancials(f)
       setProjects(p)
       setComms(c)
-    }).catch((e) => setError(e.message))
+    }).catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load analytics."))
   }, [])
 
   useEffect(() => { load() }, [load])

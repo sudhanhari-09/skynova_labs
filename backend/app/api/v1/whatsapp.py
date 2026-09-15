@@ -1,7 +1,7 @@
 """WhatsApp templates + delivery logs (spec §55 messaging)."""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -10,6 +10,7 @@ from app.api.deps import get_current_user_dict
 from app.models.spec import WhatsappTemplate, WhatsappLog
 from app.services.whatsapp_service import send_whatsapp
 from app.services.audit import log_action
+from app.services.validation import validate_name, validate_phone
 
 
 router = APIRouter(prefix="/admin/whatsapp", tags=["whatsapp"])
@@ -22,11 +23,21 @@ class TemplatePayload(BaseModel):
     variables: Optional[List[str]] = None
     is_active: bool = True
 
+    @field_validator("name")
+    @classmethod
+    def validate_name_field(cls, v):
+        return validate_name(v)
+
 
 class SendPayload(BaseModel):
     phone: str
     message: str
     template_name: Optional[str] = None
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone_field(cls, v):
+        return validate_phone(v)
 
 
 def _template_dict(t: WhatsappTemplate) -> dict:

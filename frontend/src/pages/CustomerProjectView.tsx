@@ -54,8 +54,8 @@ const CustomerProjectView: React.FC = () => {
       try {
         const data = await fetchPublicProject(secureReference as string)
         setProject(data)
-      } catch (e: any) {
-        setError(e.message || "Project not found")
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : "Project not found")
       } finally {
         setIsLoading(false)
       }
@@ -114,7 +114,7 @@ const CustomerProjectView: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto site-container py-8">
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="hero-section px-6 py-8">
             <div className="text-sm text-gray-300">{project.project_number}</div>

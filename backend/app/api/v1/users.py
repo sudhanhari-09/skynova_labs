@@ -6,9 +6,11 @@ from app.models.auth import User, Role, UserRole, Permission, RolePermission
 from app.models.operations import Notification
 from app.services.notifications import create_notification
 from app.api.deps import get_current_user_dict
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
+
+from app.services.validation import validate_phone
 
 
 router = APIRouter(prefix="/admin/users", tags=["admin-users"])
@@ -35,6 +37,11 @@ class UserCreate(BaseModel):
     phone: str
     roles: List[str] = []
 
+    @field_validator("phone")
+    @classmethod
+    def validate_phone_field(cls, v: str) -> str:
+        return validate_phone(v)
+
 
 class UserUpdate(BaseModel):
     first_name: Optional[str] = None
@@ -43,6 +50,13 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
     is_verified: Optional[bool] = None
     roles: Optional[List[str]] = None
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone_field(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            return None
+        return validate_phone(v)
 
 
 class RoleResponse(BaseModel):

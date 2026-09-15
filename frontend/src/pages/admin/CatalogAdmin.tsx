@@ -89,7 +89,7 @@ const CatalogAdmin: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    load().catch((e) => setError(e.message))
+    load().catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load catalog data."))
   }, [load])
 
   const openAdd = () => {

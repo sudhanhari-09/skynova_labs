@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useState } from "react"
+﻿import React, { useCallback, useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { usePageMeta } from "../hooks/usePageMeta"
 import { ArrowRight } from "../components/icons"
 import { fetchServices, fetchTechnologies, fetchIndustries, Service, Technology, Industry } from "../services/api"
+import { fmtMoney } from "../utils/currency"
 
 const fallbackServices = [
   { name: "AI / Machine Learning", description: "Applied machine learning, LLM integrations, computer vision and predictive systems designed around your data and domain." },
@@ -80,7 +81,7 @@ const Solutions: React.FC = () => {
       </section>
 
       {/* Services */}
-      <section className="max-w-7xl mx-auto px-4 py-16" aria-labelledby="services-heading">
+      <section className="max-w-7xl mx-auto site-container py-16" aria-labelledby="services-heading">
         <h2 id="services-heading" className="text-3xl font-bold text-gray-900 mb-2">
           What we build
         </h2>
@@ -99,7 +100,7 @@ const Solutions: React.FC = () => {
               <p className="text-gray-600 text-sm leading-relaxed flex-1">{service.description}</p>
               {service.starting_price !== null && (
                 <span className="text-xs text-gray-500 mt-2">
-                  From {service.starting_price === 0 ? "contact us" : `$${Number(service.starting_price).toLocaleString()}`} · {service.pricing_model || "project-based"}
+                  From {service.starting_price === 0 ? "contact us" : fmtMoney(Number(service.starting_price))} · {service.pricing_model || "project-based"}
                 </span>
               )}
               <span className="btn-link mt-4 inline-flex items-center gap-1">
@@ -112,7 +113,7 @@ const Solutions: React.FC = () => {
 
       {/* Technologies */}
       <section className="bg-slate-900 text-white py-16" aria-labelledby="tech-heading">
-        <div className="max-w-7xl mx-auto px-4">
+        <div className="max-w-7xl mx-auto site-container">
           <h2 id="tech-heading" className="text-3xl font-bold mb-2">
             Technologies we work with
           </h2>
@@ -131,7 +132,7 @@ const Solutions: React.FC = () => {
       </section>
 
       {/* Industries */}
-      <section className="max-w-7xl mx-auto px-4 py-16" aria-labelledby="industries-heading">
+      <section className="max-w-7xl mx-auto site-container py-16" aria-labelledby="industries-heading">
         <h2 id="industries-heading" className="text-3xl font-bold text-gray-900 mb-2">
           Industries we serve
         </h2>
@@ -147,7 +148,7 @@ const Solutions: React.FC = () => {
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 pb-16">
+      <section className="max-w-7xl mx-auto site-container pb-16">
         <div className="card text-center py-12">
           <h2 className="text-2xl font-bold text-gray-900 mb-3">Not sure which solution fits?</h2>
           <p className="text-gray-600 mb-8 max-w-xl mx-auto">

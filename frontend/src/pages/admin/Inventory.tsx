@@ -38,6 +38,7 @@ import {
   Skeleton,
   useToastAction,
 } from "../../components/ui"
+import { fmtMoney } from "../../utils/currency"
 
 const lowTone = (low?: boolean) => (low ? <Badge className="bg-red-100 text-red-800">Low</Badge> : <Badge className="bg-green-100 text-green-800">OK</Badge>)
 
@@ -69,7 +70,7 @@ const Inventory: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    load().catch((e) => setError(e.message))
+    load().catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load inventory."))
   }, [load])
 
   const saveComponent = () => {
@@ -134,7 +135,7 @@ const Inventory: React.FC = () => {
     { label: "Components", value: summary.components_count },
     { label: "Units in stock", value: summary.total_units_in_stock },
     { label: "Low stock", value: summary.low_stock_count },
-    { label: "Inventory value", value: `$${summary.inventory_value.toLocaleString()}` },
+    { label: "Inventory value", value: fmtMoney(summary.inventory_value) },
     { label: "Suppliers", value: summary.suppliers_count },
   ] : []
 
@@ -197,8 +198,8 @@ const Inventory: React.FC = () => {
                           {c.minimum_stock !== undefined && c.minimum_stock > 0 && <div className="text-xs text-gray-400">min {c.minimum_stock}</div>}
                         </TableCell>
                         <TableCell className="text-xs">
-                          <div>Buy ${(c.purchase_price ?? 0).toLocaleString()}</div>
-                          <div>Sell ${(c.selling_price ?? 0).toLocaleString()}</div>
+                          <div>Buy {fmtMoney(c.purchase_price ?? 0)}</div>
+                          <div>Sell {fmtMoney(c.selling_price ?? 0)}</div>
                         </TableCell>
                         <TableCell>{c.status === "ACTIVE" ? <Badge className="bg-green-100 text-green-800">Active</Badge> : <Badge className="bg-gray-100 text-gray-600">{c.status || "Inactive"}</Badge>}</TableCell>
                         <TableCell className="text-right">

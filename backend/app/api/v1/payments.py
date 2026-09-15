@@ -9,7 +9,8 @@ from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from pydantic_core import PydanticCustomError
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -19,6 +20,7 @@ from app.models.operations import Payment, Invoice
 from app.services.notifications import create_notification, dispatch_event
 from app.services.audit import log_action
 from app.api.v1.invoices import recompute_totals
+from app.services.validation import validate_email_field
 
 
 router = APIRouter(prefix="/admin/payments", tags=["admin-payments"])
@@ -31,12 +33,26 @@ class PaymentCreate(BaseModel):
     customer_name: Optional[str] = None
     customer_email: Optional[str] = None
     amount: float = Field(..., gt=0)
-    currency: str = "USD"
+    currency: str = "INR"
     method: str = Field(..., description="CARD, BANK_TRANSFER, CASH, CHEQUE, ONLINE, OTHER")
     reference: Optional[str] = None
     status: str = "SUCCEEDED"  # PENDING, SUCCEEDED, FAILED, REFUNDED
     paid_at: Optional[datetime] = None
     metadata: Optional[dict] = None
+
+    @field_validator("customer_email")
+    @classmethod
+    def validate_customer_email(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            return None
+        return validate_email_field(v)
+
+    @field_validator("currency")
+    @classmethod
+    def currency_must_be_inr(cls, v: str) -> str:
+        if v.upper() != "INR":
+            raise PydanticCustomError('value_error', 'Only INR currency is supported.')
+        return "INR"
 
 
 class PaymentUpdate(BaseModel):

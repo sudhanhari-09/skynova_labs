@@ -51,7 +51,7 @@ const KnowledgeBase: React.FC = () => {
     ]).then(([c, a]) => { setCategories(c); setArticles(a) })
   }, [catFilter, search])
 
-  useEffect(() => { load().catch((e) => setError(e.message)) }, [load])
+  useEffect(() => { load().catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load knowledge base.")) }, [load])
 
   const createCat = (e: React.FormEvent) => {
     e.preventDefault()

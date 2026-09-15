@@ -70,7 +70,7 @@ const RDAdmin: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    load().catch((e) => setError(e.message))
+    load().catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load R&D data."))
   }, [load])
 
   const rows: RowLike[] = tab === "research" ? research : tab === "experiments" ? experiments : buildlogs

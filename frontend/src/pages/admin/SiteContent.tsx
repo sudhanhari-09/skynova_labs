@@ -98,7 +98,7 @@ const SiteContent: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    load().catch((e) => setError(e.message))
+    load().catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load site content."))
   }, [load])
 
   const meta = tabMeta[tab]

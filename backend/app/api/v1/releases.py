@@ -6,10 +6,13 @@ is given).
 """
 from datetime import datetime
 from typing import List, Optional
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
+
+from app.db import get_db
 
 from app.db import get_db
 from app.api.deps import get_current_user, require_feature
@@ -20,6 +23,34 @@ from app.models.operations import ProductRelease, Product, ProductVersion
 router = APIRouter(prefix="/admin/releases", tags=["admin-releases"])
 
 
+# ── Date validation ──────────────────────────────────────────────
+_DATE_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
+
+
+def _validate_yyyy_mm_dd_date(value: object) -> object:
+    """Validate a date value is in strict YYYY-MM-DD format with exact 4-digit year."""
+    if value is None or value == "":
+        return value
+    if isinstance(value, str):
+        m = _DATE_RE.match(value.strip())
+        if not m:
+            raise ValueError("Please enter a valid date in YYYY-MM-DD format.")
+        year_s, month_s, day_s = m.group(1), m.group(2), m.group(3)
+        year, month, day = int(year_s), int(month_s), int(day_s)
+        if month < 1 or month > 12:
+            raise ValueError("Please enter a valid date.")
+        days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        if (year % 4 == 0 and year % 100 != 0) or year % 400 == 0:
+            days_in_month[1] = 29
+        if day < 1 or day > days_in_month[month - 1]:
+            raise ValueError("Please enter a valid date.")
+    elif isinstance(value, datetime):
+        pass
+    else:
+        raise ValueError("Please enter a valid date in YYYY-MM-DD format.")
+    return value
+
+
 class ReleaseCreate(BaseModel):
     product_id: int
     version_id: Optional[int] = None
@@ -27,7 +58,12 @@ class ReleaseCreate(BaseModel):
     release_notes: Optional[str] = None
     status: str = "SCHEDULED"
     environment: str = "PRODUCTION"
-    scheduled_for: Optional[datetime] = None
+    scheduled_for: Optional[datetime] = Field(None, description="Scheduled date in YYYY-MM-DD format or ISO datetime")
+
+    @field_validator("scheduled_for", mode="before")
+    @classmethod
+    def validate_scheduled_for(cls, v: object) -> object:
+        return _validate_yyyy_mm_dd_date(v)
 
 
 class ReleaseUpdate(BaseModel):
@@ -35,7 +71,12 @@ class ReleaseUpdate(BaseModel):
     release_notes: Optional[str] = None
     status: Optional[str] = None
     environment: Optional[str] = None
-    scheduled_for: Optional[datetime] = None
+    scheduled_for: Optional[datetime] = Field(None, description="Scheduled date in YYYY-MM-DD format or ISO datetime")
+
+    @field_validator("scheduled_for", mode="before")
+    @classmethod
+    def validate_scheduled_for(cls, v: object) -> object:
+        return _validate_yyyy_mm_dd_date(v)
 
 
 class ReleaseResponse(BaseModel):

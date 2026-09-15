@@ -398,7 +398,7 @@ class Quotation(TimeStampedModel):
     title = Column(String, nullable=False)
     version = Column(String, default="1", nullable=False)
     status = Column(String, default="DRAFT", nullable=False)  # DRAFT, INTERNAL_REVIEW, APPROVED, SENT, VIEWED, ACCEPTED
-    currency = Column(String, default="USD", nullable=False)
+    currency = Column(String, default="INR", nullable=False)
     subtotal = Column(Numeric(14, 2), default=0, nullable=False)  # Decimal
     discount = Column(Numeric(14, 2), default=0, nullable=False)  # Decimal
     discount_type = Column(String, default="percentage", nullable=False)  # "percentage" or "amount"
@@ -579,7 +579,7 @@ class Project(TimeStampedModel):
     customer_budget = Column(Numeric(14, 2), nullable=True)
     actual_cost = Column(Numeric(14, 2), nullable=True)
     selling_value = Column(Numeric(14, 2), nullable=True)
-    currency = Column(String, default="USD", nullable=False)
+    currency = Column(String, default="INR", nullable=False)
     secure_reference = Column(String, unique=True, index=True, nullable=False)  # For customer-facing views
     notes = Column(Text, nullable=True)
 

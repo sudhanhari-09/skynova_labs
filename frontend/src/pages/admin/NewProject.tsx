@@ -1,6 +1,7 @@
 import React, { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { createProject } from "../../services/api"
+import { validateDateString } from "../../utils/date"
 
 interface NewProjectForm {
   title: string
@@ -31,6 +32,12 @@ const NewProject: React.FC = () => {
       setError("Project title is required.")
       return
     }
+    // Validate start_date format
+    const dateValidation = validateDateString(form.start_date, { minYear: 1900, maxYear: 2100 })
+    if (!dateValidation.valid) {
+      setError(dateValidation.error || "Please enter a valid date.")
+      return
+    }
     setSubmitting(true)
     try {
       const payload: any = {
@@ -39,7 +46,7 @@ const NewProject: React.FC = () => {
         description: form.description.trim() || undefined,
         status: "PLANNING",
         priority: "MEDIUM",
-        currency: "USD",
+        currency: "INR",
         start_date: form.start_date ? new Date(form.start_date).toISOString() : undefined,
       }
       const created = await createProject(payload)

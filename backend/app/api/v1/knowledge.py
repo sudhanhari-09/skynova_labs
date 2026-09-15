@@ -1,7 +1,7 @@
 """Knowledge base (spec §33): articles + categories, public and staff scopes."""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -9,6 +9,7 @@ from app.db import get_db
 from app.api.deps import get_current_user_dict
 from app.models.spec import KnowledgeArticle, KnowledgeCategory
 from app.services.audit import log_action
+from app.services.validation import validate_name, validate_slug
 
 
 router = APIRouter(prefix="/knowledge", tags=["knowledge"])
@@ -22,6 +23,18 @@ class CategoryPayload(BaseModel):
     description: Optional[str] = None
     display_order: Optional[int] = 0
 
+    @field_validator("name")
+    @classmethod
+    def validate_name_field(cls, v):
+        return validate_name(v)
+
+    @field_validator("slug")
+    @classmethod
+    def validate_slug_field(cls, v):
+        if v is None:
+            return v
+        return validate_slug(v)
+
 
 class ArticlePayload(BaseModel):
     title: str
@@ -34,6 +47,18 @@ class ArticlePayload(BaseModel):
     visibility: str = "INTERNAL"
     version: str = "1"
     is_published: bool = False
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, v):
+        return validate_name(v)
+
+    @field_validator("slug")
+    @classmethod
+    def validate_slug_field(cls, v):
+        if v is None:
+            return v
+        return validate_slug(v)
 
 
 def _slugify(text: str) -> str:

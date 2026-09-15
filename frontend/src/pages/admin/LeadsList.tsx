@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useState, useCallback } from "react"
 import { useAuth } from "../../store/authStore"
 import { Table, TableHeader, TableRow, TableCell, TableHead, Button, Badge, Spinner, EmptyState, StateError, StatusBadge } from "../../components/ui"
 import { useParams, useNavigate } from "react-router-dom"
 import { fetchLeads } from "../../services/api"
+import { formatDate, formatTime } from "../../utils/date"
 
 const LeadsList: React.FC = () => {
   const { isAuthenticated } = useAuth()
@@ -19,16 +20,7 @@ const LeadsList: React.FC = () => {
   const [isLoadingLeads, setIsLoadingLeads] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate("/login")
-      return
-    }
-
-    loadLeads()
-  }, [isAuthenticated, navigate])
-
-  const loadLeads = async () => {
+  const loadLeads = useCallback(async () => {
     setIsLoadingLeads(true)
     setError(null)
     try {
@@ -48,12 +40,20 @@ const LeadsList: React.FC = () => {
     } finally {
       setIsLoadingLeads(false)
     }
-  }
+  }, [filters])
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate("/login")
+      return
+    }
+
+    loadLeads()
+  }, [isAuthenticated, navigate, loadLeads])
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
-    setFilters({ ...filters, [name]: value })
-    loadLeads()
+    setFilters((prev) => ({ ...prev, [name]: value }))
   }
 
   return (
@@ -200,13 +200,13 @@ const LeadsList: React.FC = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="text-xs text-gray-500">{lead.created_at?.toLocaleDateString()}</div>
+                      <div className="text-xs text-gray-500">{formatDate(lead.created_at)}</div>
                     </TableCell>
                     <TableCell>
                       {lead.next_follow_up_at ? (
                         <div>
-                          <div className="font-medium">{lead.next_follow_up_at.toLocaleDateString()}</div>
-                          <div className="text-xs text-gray-500">{lead.next_follow_up_at.toLocaleTimeString()}</div>
+                          <div className="font-medium">{formatDate(lead.next_follow_up_at)}</div>
+                          <div className="text-xs text-gray-500">{formatTime(lead.next_follow_up_at)}</div>
                         </div>
                       ) : (
                         <div className="text-xs text-gray-500">—</div>

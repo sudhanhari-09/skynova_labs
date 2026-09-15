@@ -31,8 +31,8 @@ const ResetPassword: React.FC = () => {
     try {
       await resetPassword(token, password)
       setSuccess(true)
-    } catch (err: any) {
-      setError(err.message || "Reset failed")
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Reset failed")
     } finally {
       setLoading(false)
     }

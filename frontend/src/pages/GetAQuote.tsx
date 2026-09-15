@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react"
+﻿import React, { useEffect, useMemo, useState } from "react"
 import { usePageMeta } from "../hooks/usePageMeta"
 import {
   listProjectTypes,
@@ -7,9 +7,12 @@ import {
   ProjectTypeSummary,
   ProjectSubcategorySummary,
   QuoteRequestResult,
+  QuoteRequestPayload,
 } from "../services/api"
 import { Button, Spinner, Alert } from "../components/ui"
 import { ChevronLeft, ChevronRight } from "../components/icons"
+import { validateDateString } from "../utils/date"
+import { validateEmail, validatePhone, validateName } from "../utils/validation"
 
 interface QuoteForm {
   projectTypeId: string
@@ -72,6 +75,8 @@ const GetAQuote: React.FC = () => {
   const [subcategories, setSubcategories] = useState<ProjectSubcategorySummary[]>([])
   const [catalogLoading, setCatalogLoading] = useState(true)
   const [catalogError, setCatalogError] = useState<string | null>(null)
+  // Bumping this token re-runs the project-type load (used by the retry action).
+  const [catalogReloadToken, setCatalogReloadToken] = useState(0)
   const [subsLoading, setSubsLoading] = useState(false)
 
   const [perStepErrors, setPerStepErrors] = useState<Record<string, string>>({})
@@ -82,18 +87,28 @@ const GetAQuote: React.FC = () => {
   useEffect(() => {
     let active = true
     setCatalogLoading(true)
+    // Clear any previous failure so a retry starts from a clean state.
+    setCatalogError(null)
     listProjectTypes()
       .then((data) => {
         if (!active) return
         setProjectTypes(data)
         setCatalogError(null)
       })
-      .catch((e: any) => active && setCatalogError(e.message || "Could not load project types."))
+      .catch((e: any) => {
+        if (!active) return
+        // The request failed: keep the catalog empty and surface the API error.
+        setProjectTypes([])
+        setCatalogError(e?.message || "Could not load project types.")
+      })
       .finally(() => active && setCatalogLoading(false))
     return () => {
       active = false
     }
-  }, [])
+  }, [catalogReloadToken])
+
+  // Retries the actual failed project-type request (no page reload).
+  const retryLoadProjectTypes = () => setCatalogReloadToken((token) => token + 1)
 
   useEffect(() => {
     const typeId = Number(form.projectTypeId)
@@ -133,17 +148,49 @@ const GetAQuote: React.FC = () => {
     const errs: Record<string, string> = {}
     if (s === 0 && !form.projectTypeId) errs.projectTypeId = "Choose a project type to continue."
     if (s === 1 && !form.subcategoryId) errs.subcategoryId = "Choose a subcategory to continue."
+    if (s === 2) {
+      const req = form.detailed_requirements.trim()
+      if (!req) errs.detailed_requirements = "Please describe your requirements."
+      else if (req.length < 10) errs.detailed_requirements = "Please provide more detail in your requirements (at least 10 characters)."
+    }
     if (s === 3) {
-      if (!form.detailed_requirements.trim()) errs.detailed_requirements = "Give us a short description of your requirements."
+      if (form.target_audience.trim() && form.target_audience.trim().length < 2) errs.target_audience = "Please provide a valid target audience."
+      if (form.existing_system.trim() && form.existing_system.trim().length < 2) errs.existing_system = "Please provide a valid description."
+    }
+    if (s === 4) {
+      const budgetVal = form.budget.trim()
+      if (budgetVal) {
+        if (!/^[1-9]\d{0,10}$/.test(budgetVal)) errs.budget = "Please enter a valid budget amount in INR."
+        else {
+          const num = Number(budgetVal)
+          if (!Number.isFinite(num) || num < 1 || num > 99999999999) errs.budget = "Please enter a valid budget amount in INR."
+        }
+      }
+      const timelineVal = form.timeline.trim()
+      if (timelineVal) {
+        if (!/^[1-9]\d{0,2}$/.test(timelineVal)) errs.timeline = "Please enter a valid timeline in months."
+        else {
+          const num = Number(timelineVal)
+          if (!Number.isFinite(num) || num < 1 || num > 120) errs.timeline = "Please enter a valid timeline in months."
+        }
+      }
+      if (form.expected_launch.trim()) {
+        const result = validateDateString(form.expected_launch.trim(), { minYear: 1900, maxYear: 2100, futureOnly: true })
+        if (!result.valid) errs.expected_launch = result.error || "Please enter a future date."
+      }
     }
     if (s === 5) {
-      if (!form.name.trim()) errs.name = "Please enter your name."
-      if (!form.email.trim()) errs.email = "Please enter your email."
-      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = "Please enter a valid email address."
-      if (!form.phone.trim()) errs.phone = "Please enter your phone number."
-      else if (!/^[+]?[\d\s\-().]{7,20}$/.test(form.phone.trim())) errs.phone = "Please enter a valid phone number."
-      if (!form.whatsapp.trim()) errs.whatsapp = "Please enter your WhatsApp number."
-      else if (!/^[+]?[\d\s\-().]{7,20}$/.test(form.whatsapp.trim())) errs.whatsapp = "Please enter a valid WhatsApp number."
+      const nameResult = validateName(form.name)
+      if (!nameResult.valid) errs.name = nameResult.error || "Please enter your name."
+      else if (/^\d+$/.test(form.name.trim())) errs.name = "Please enter a valid name (not just numbers)."
+      const emailResult = validateEmail(form.email)
+      if (!emailResult.valid) errs.email = emailResult.error || "Please enter your email."
+      const phoneResult = validatePhone(form.phone)
+      if (!phoneResult.valid) errs.phone = phoneResult.error || "Please enter your phone number."
+      const waResult = validatePhone(form.whatsapp)
+      if (!waResult.valid) errs.whatsapp = waResult.error || "Please enter your WhatsApp number."
+      if (form.company_name.trim() && form.company_name.trim().length < 2) errs.company_name = "Please enter a valid company name."
+      if (form.designation.trim() && form.designation.trim().length < 2) errs.designation = "Please enter a valid designation."
     }
     setPerStepErrors(errs)
     return Object.keys(errs).length === 0
@@ -162,36 +209,78 @@ const GetAQuote: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (submitting) return
     setSubmitError(null)
     if (!selectedType || !selectedSub) {
       setSubmitError("Please choose a project type and subcategory.")
       return
     }
+    if (form.budget.trim()) {
+      if (!/^[1-9]\d{0,10}$/.test(form.budget.trim()) || !Number.isFinite(Number(form.budget.trim())) || Number(form.budget.trim()) < 1 || Number(form.budget.trim()) > 99999999999) {
+        setSubmitError("Please enter a valid budget amount in INR.")
+        return
+      }
+    }
+    if (form.timeline.trim()) {
+      if (!/^[1-9]\d{0,2}$/.test(form.timeline.trim()) || !Number.isFinite(Number(form.timeline.trim())) || Number(form.timeline.trim()) < 1 || Number(form.timeline.trim()) > 120) {
+        setSubmitError("Please enter a valid timeline in months.")
+        return
+      }
+    }
+    if (form.expected_launch.trim()) {
+      const dateResult = validateDateString(form.expected_launch.trim(), { minYear: 1900, maxYear: 2100, futureOnly: true })
+      if (!dateResult.valid) {
+        setSubmitError(dateResult.error || "Please enter a valid future date for Expected launch.")
+        return
+      }
+    }
     setSubmitting(true)
     try {
-      const payload: Record<string, string> = {
+      const payload: QuoteRequestPayload = {
         project_type_name: selectedType.name,
         subcategory_name: selectedSub.name,
         project_type_slug: selectedType.slug,
         subcategory_slug: selectedSub.slug,
-        name: form.name,
-        email: form.email,
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
         phone: form.phone.trim(),
         whatsapp: form.whatsapp.trim(),
         source: "website",
       }
-      const optional: (keyof QuoteForm)[] = [
-        "company_name", "designation", "budget", "timeline",
-        "target_audience", "existing_system", "expected_launch", "detailed_requirements",
+      const optionalFields: { key: keyof QuoteForm; apiField: keyof QuoteRequestPayload }[] = [
+        { key: "company_name", apiField: "company_name" },
+        { key: "designation", apiField: "designation" },
+        { key: "budget", apiField: "budget" },
+        { key: "timeline", apiField: "timeline" },
+        { key: "target_audience", apiField: "target_audience" },
+        { key: "existing_system", apiField: "existing_system" },
+        { key: "expected_launch", apiField: "expected_launch" },
+        { key: "detailed_requirements", apiField: "detailed_requirements" },
       ]
-      for (const key of optional) {
+      for (const { key, apiField } of optionalFields) {
         const val = (form[key] as string).trim()
-        if (val) payload[key] = val
+        if (val) payload[apiField] = val as any
       }
-      const res = await submitQuoteRequest(payload as any)
+      const res = await submitQuoteRequest(payload)
       setResult(res)
-    } catch (err: any) {
-      setSubmitError(err.message || "There was a problem submitting your request.")
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "There was a problem submitting your request."
+      const fieldErrors = (err as any)?.fieldErrors as Record<string, string> | undefined
+      if (fieldErrors && Object.keys(fieldErrors).length > 0) {
+        setPerStepErrors(fieldErrors)
+        // Navigate to the first step that has a field error
+        const fieldToStep: Record<string, number> = {
+          projectTypeId: 0, subcategoryId: 1,
+          detailed_requirements: 2,
+          target_audience: 3, existing_system: 3,
+          budget: 4, timeline: 4, expected_launch: 4,
+          name: 5, email: 5, phone: 5, whatsapp: 5, company_name: 5, designation: 5,
+        }
+        const firstErrorField = Object.keys(fieldErrors)[0]
+        const targetStep = fieldToStep[firstErrorField]
+        if (targetStep !== undefined) setStep(targetStep)
+      }
+      setSubmitError(message)
     } finally {
       setSubmitting(false)
     }
@@ -199,7 +288,7 @@ const GetAQuote: React.FC = () => {
 
   if (result) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+      <div className="max-w-2xl mx-auto site-container py-16 text-center">
         <div className="bg-white rounded-lg shadow p-10">
           <div className="text-4xl mb-3" aria-hidden="true">✅</div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Request Received</h1>
@@ -219,7 +308,7 @@ const GetAQuote: React.FC = () => {
   }
 
   return (
-    <main id="main" className="max-w-3xl mx-auto px-4 py-12">
+    <main id="main" className="max-w-3xl mx-auto site-container py-12">
       <h1 className="text-3xl font-bold text-gray-900 mb-2">Get a Quote</h1>
       <p className="text-gray-600 mb-8">
         A few steps to tell us about your project and receive a tailored proposal.
@@ -241,7 +330,12 @@ const GetAQuote: React.FC = () => {
 
       {catalogError && (
         <Alert className="mb-6">
-          {catalogError} Please try again later.
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>{catalogError} Please try again later.</span>
+            <Button type="button" variant="secondary" size="sm" onClick={retryLoadProjectTypes}>
+              Retry
+            </Button>
+          </div>
         </Alert>
       )}
 
@@ -259,6 +353,10 @@ const GetAQuote: React.FC = () => {
           <div className="space-y-4">
             {catalogLoading ? (
               <div className="py-8"><Spinner className="mx-auto" label="Loading project types…" /></div>
+            ) : catalogError ? (
+              <div className="text-center py-8 text-gray-500">
+                Project types couldn’t be loaded. Use Retry to try again.
+              </div>
             ) : projectTypes.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 No project types available yet. Please check back soon.
@@ -325,6 +423,7 @@ const GetAQuote: React.FC = () => {
               id="detailed_requirements"
               name="detailed_requirements"
               rows={5}
+              maxLength={5000}
               className="input input-bordered w-full"
               placeholder="What are the core features and functionality you need?"
               value={form.detailed_requirements}
@@ -338,11 +437,13 @@ const GetAQuote: React.FC = () => {
           <div className="space-y-4">
             <div className="space-y-2">
               <label htmlFor="target_audience" className="label"><span className="label-text">Target audience</span></label>
-              <input id="target_audience" name="target_audience" className="input input-bordered w-full" placeholder="Who will use this?" value={form.target_audience} onChange={handleChange} />
+              <input id="target_audience" name="target_audience" maxLength={500} className="input input-bordered w-full" placeholder="Who will use this?" value={form.target_audience} onChange={handleChange} />
+              {perStepErrors.target_audience && <p className="text-sm text-red-600" role="alert">{perStepErrors.target_audience}</p>}
             </div>
             <div className="space-y-2">
               <label htmlFor="existing_system" className="label"><span className="label-text">Existing system</span></label>
-              <textarea id="existing_system" name="existing_system" rows={3} className="input input-bordered w-full" placeholder="Is there anything this replaces or integrates with?" value={form.existing_system} onChange={handleChange} />
+              <textarea id="existing_system" name="existing_system" rows={3} maxLength={2000} className="input input-bordered w-full" placeholder="Is there anything this replaces or integrates with?" value={form.existing_system} onChange={handleChange} />
+              {perStepErrors.existing_system && <p className="text-sm text-red-600" role="alert">{perStepErrors.existing_system}</p>}
             </div>
           </div>
         )}
@@ -350,16 +451,19 @@ const GetAQuote: React.FC = () => {
         {step === 4 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label htmlFor="budget" className="label"><span className="label-text">Approximate budget</span></label>
-              <input id="budget" name="budget" className="input input-bordered w-full" placeholder="e.g. $20k–$50k" value={form.budget} onChange={handleChange} />
+              <label htmlFor="budget" className="label"><span className="label-text">Approximate budget (INR)</span></label>
+              <input id="budget" name="budget" className="input input-bordered w-full" placeholder="e.g. 50000" value={form.budget} onChange={handleChange} />
+              {perStepErrors.budget && <p className="text-sm text-red-600" role="alert">{perStepErrors.budget}</p>}
             </div>
             <div className="space-y-2">
-              <label htmlFor="timeline" className="label"><span className="label-text">Timeline</span></label>
-              <input id="timeline" name="timeline" className="input input-bordered w-full" placeholder="e.g. 3–6 months" value={form.timeline} onChange={handleChange} />
+              <label htmlFor="timeline" className="label"><span className="label-text">Timeline (months)</span></label>
+              <input id="timeline" name="timeline" className="input input-bordered w-full" placeholder="e.g. 3" value={form.timeline} onChange={handleChange} />
+              {perStepErrors.timeline && <p className="text-sm text-red-600" role="alert">{perStepErrors.timeline}</p>}
             </div>
             <div className="space-y-2 sm:col-span-2">
               <label htmlFor="expected_launch" className="label"><span className="label-text">Expected launch</span></label>
               <input id="expected_launch" name="expected_launch" type="date" className="input input-bordered w-full" value={form.expected_launch} onChange={handleChange} />
+              {perStepErrors.expected_launch && <p className="text-sm text-red-600" role="alert">{perStepErrors.expected_launch}</p>}
             </div>
           </div>
         )}
@@ -368,31 +472,33 @@ const GetAQuote: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label htmlFor="name" className="label"><span className="label-text">Full name *</span></label>
-              <input id="name" name="name" className="input input-bordered w-full" placeholder="Your name" value={form.name} onChange={handleChange} />
+              <input id="name" name="name" maxLength={150} className="input input-bordered w-full" placeholder="Your name" value={form.name} onChange={handleChange} />
               {perStepErrors.name && <p className="text-sm text-red-600" role="alert">{perStepErrors.name}</p>}
             </div>
             <div className="space-y-2">
               <label htmlFor="email" className="label"><span className="label-text">Email *</span></label>
-              <input id="email" name="email" type="email" className="input input-bordered w-full" placeholder="name@example.com" value={form.email} onChange={handleChange} />
+              <input id="email" name="email" type="email" maxLength={254} className="input input-bordered w-full" placeholder="name@example.com" value={form.email} onChange={handleChange} />
               {perStepErrors.email && <p className="text-sm text-red-600" role="alert">{perStepErrors.email}</p>}
             </div>
             <div className="space-y-2">
               <label htmlFor="phone" className="label"><span className="label-text">Phone *</span></label>
-              <input id="phone" name="phone" type="tel" className="input input-bordered w-full" placeholder="+1 555 000 0000" value={form.phone} onChange={handleChange} />
+              <input id="phone" name="phone" type="tel" maxLength={20} className="input input-bordered w-full" placeholder="+1 555 000 0000" value={form.phone} onChange={handleChange} />
               {perStepErrors.phone && <p className="text-sm text-red-600" role="alert">{perStepErrors.phone}</p>}
             </div>
             <div className="space-y-2">
               <label htmlFor="whatsapp" className="label"><span className="label-text">WhatsApp *</span></label>
-              <input id="whatsapp" name="whatsapp" className="input input-bordered w-full" placeholder="+1 555 000 0000" value={form.whatsapp} onChange={handleChange} />
+              <input id="whatsapp" name="whatsapp" maxLength={20} className="input input-bordered w-full" placeholder="+1 555 000 0000" value={form.whatsapp} onChange={handleChange} />
               {perStepErrors.whatsapp && <p className="text-sm text-red-600" role="alert">{perStepErrors.whatsapp}</p>}
             </div>
             <div className="space-y-2">
               <label htmlFor="company_name" className="label"><span className="label-text">Company</span></label>
-              <input id="company_name" name="company_name" className="input input-bordered w-full" placeholder="Company name" value={form.company_name} onChange={handleChange} />
+              <input id="company_name" name="company_name" maxLength={200} className="input input-bordered w-full" placeholder="Company name" value={form.company_name} onChange={handleChange} />
+              {perStepErrors.company_name && <p className="text-sm text-red-600" role="alert">{perStepErrors.company_name}</p>}
             </div>
             <div className="space-y-2">
               <label htmlFor="designation" className="label"><span className="label-text">Designation</span></label>
-              <input id="designation" name="designation" className="input input-bordered w-full" placeholder="e.g. CTO" value={form.designation} onChange={handleChange} />
+              <input id="designation" name="designation" maxLength={100} className="input input-bordered w-full" placeholder="e.g. CTO" value={form.designation} onChange={handleChange} />
+              {perStepErrors.designation && <p className="text-sm text-red-600" role="alert">{perStepErrors.designation}</p>}
             </div>
           </div>
         )}
@@ -412,7 +518,7 @@ const GetAQuote: React.FC = () => {
                 ))}
               </ul>
             )}
-            <p className="text-xs text-gray-500">File uploads are shown here for review. Backend upload support is a dependency.</p>
+            <p className="text-xs text-gray-500">Files shown for reference only. Attachments are not uploaded with this form. Share files with your account manager after submission.</p>
           </div>
         )}
 

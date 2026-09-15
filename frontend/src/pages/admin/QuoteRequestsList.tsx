@@ -3,12 +3,14 @@ import { useAuth } from "../../store/authStore"
 import { useNavigate } from "react-router-dom"
 import { Table, TableHeader, TableRow, TableCell, Spinner, EmptyState } from "../../components/ui"
 import { fetchQuoteRequests, QuoteRequest } from "../../services/api"
+import { formatDate } from "../../utils/date"
 
 const QuoteRequestsList: React.FC = () => {
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const [requests, setRequests] = useState<QuoteRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -17,11 +19,13 @@ const QuoteRequestsList: React.FC = () => {
     }
     const load = async () => {
       setIsLoading(true)
+      setError(null)
       try {
         const data = await fetchQuoteRequests()
         setRequests(data || [])
-      } catch (error) {
-        console.error("Failed to load quote requests:", error)
+      } catch (err: any) {
+        console.error("Failed to load quote requests:", err)
+        setError(err?.message || "Failed to load quote requests.")
       } finally {
         setIsLoading(false)
       }
@@ -38,14 +42,20 @@ const QuoteRequestsList: React.FC = () => {
           </div>
         )}
 
-        {!isLoading && requests.length === 0 && (
+        {!isLoading && error && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4 text-sm text-red-800">
+            {error}
+          </div>
+        )}
+
+        {!isLoading && !error && requests.length === 0 && (
           <EmptyState
             title="No Quote Requests Found"
             description="Quote requests submitted from the website will appear here."
           />
         )}
 
-        {!isLoading && requests.length > 0 && (
+        {!isLoading && !error && requests.length > 0 && (
           <div className="overflow-x-auto rounded-lg shadow">
             <Table>
               <TableHeader>
@@ -56,10 +66,10 @@ const QuoteRequestsList: React.FC = () => {
                 </TableRow>
               </TableHeader>
               {requests.map((r) => (
-                <TableRow key={r.id} onClick={() => navigate(`/admin/quote-requests/${r.id}`)} className="cursor-pointer">
+                <TableRow key={r.id} onClick={() => r.id != null && navigate(`/admin/quote-requests/${r.id}`)} className="cursor-pointer">
                   <TableCell>{r.request_number}</TableCell>
                   <TableCell>{r.status}</TableCell>
-                  <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell>{formatDate(r.created_at)}</TableCell>
                 </TableRow>
               ))}
             </Table>

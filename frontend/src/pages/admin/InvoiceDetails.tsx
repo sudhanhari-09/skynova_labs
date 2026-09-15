@@ -7,6 +7,9 @@ import {
 import {
   PageHeader, Skeleton, StateError, StatusBadge, Button, Alert, EmptyState,
 } from "../../components/ui"
+import { fmtMoney } from "../../utils/currency"
+import { validatePositiveInteger, validateNonNegativeNumber } from "../../utils/validation"
+import { validateDateString } from "../../utils/date"
 
 const InvoiceDetails: React.FC = () => {
   const { invoiceId } = useParams<{ invoiceId: string }>()
@@ -41,11 +44,10 @@ const InvoiceDetails: React.FC = () => {
 
   useEffect(() => { load() }, [load])
 
-  const fmtMoney = (v?: number, cur = "USD") =>
-    `${cur} ${(Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
-
   const handleItemAdd = async () => {
-    if (!newItem.name.trim() || !Number(newItem.unit_price)) return
+    if (!newItem.name.trim()) return
+    if (!validatePositiveInteger(String(newItem.quantity), 1, 99999).valid) return
+    if (!validateNonNegativeNumber(String(newItem.unit_price)).valid) return
     try {
       await addInvoiceItem(id, {
         name: newItem.name,
@@ -93,6 +95,12 @@ const InvoiceDetails: React.FC = () => {
   }
 
   const handleDueDate = async (dueDate: string) => {
+    // Validate due_date format
+    const dateValidation = validateDateString(dueDate, { minYear: 1900, maxYear: 2100 })
+    if (!dateValidation.valid) {
+      setNotice(dateValidation.error || "Please enter a valid date.")
+      return
+    }
     try {
       const updated = await updateInvoice(id, { due_date: dueDate || null })
       setInvoice(updated)
@@ -103,7 +111,7 @@ const InvoiceDetails: React.FC = () => {
 
   const handlePay = async () => {
     const amount = Number(payAmount)
-    if (!amount || amount <= 0) return
+    if (!validateNonNegativeNumber(payAmount).valid || amount <= 0) return
     setPaySaving(true)
     setNotice("")
     try {
@@ -171,12 +179,12 @@ const InvoiceDetails: React.FC = () => {
         <div className="card">
           <h3 className="text-lg font-semibold mb-4">Totals</h3>
           <dl className="def-list">
-            <div><dt>Subtotal</dt><dd>{fmtMoney(invoice.subtotal, invoice.currency)}</dd></div>
-            <div><dt>Discount ({invoice.discount_type})</dt><dd>{fmtMoney(invoice.discount, invoice.currency)}</dd></div>
-            <div><dt>Tax</dt><dd>{fmtMoney(invoice.tax, invoice.currency)}</dd></div>
-            <div><dt>Total</dt><dd className="text-green-600">{fmtMoney(invoice.total, invoice.currency)}</dd></div>
-            <div><dt>Paid</dt><dd>{fmtMoney(invoice.amount_paid, invoice.currency)}</dd></div>
-            <div><dt>Balance</dt><dd className={invoice.balance > 0 ? "text-red-600" : "text-green-600"}>{fmtMoney(invoice.balance, invoice.currency)}</dd></div>
+            <div><dt>Subtotal</dt><dd>{fmtMoney(invoice.subtotal)}</dd></div>
+            <div><dt>Discount ({invoice.discount_type})</dt><dd>{fmtMoney(invoice.discount)}</dd></div>
+            <div><dt>Tax</dt><dd>{fmtMoney(invoice.tax)}</dd></div>
+            <div><dt>Total</dt><dd className="text-green-600">{fmtMoney(invoice.total)}</dd></div>
+            <div><dt>Paid</dt><dd>{fmtMoney(invoice.amount_paid)}</dd></div>
+            <div><dt>Balance</dt><dd className={invoice.balance > 0 ? "text-red-600" : "text-green-600"}>{fmtMoney(invoice.balance)}</dd></div>
           </dl>
         </div>
       </div>
@@ -202,9 +210,9 @@ const InvoiceDetails: React.FC = () => {
                   <tr key={it.id} className="bg-white">
                     <td className="px-4 py-3 text-gray-900 font-medium">{it.name}</td>
                     <td className="px-4 py-3 text-gray-600">{it.quantity}</td>
-                    <td className="px-4 py-3 text-right text-gray-600">{fmtMoney(it.unit_price, invoice.currency)}</td>
-                    <td className="px-4 py-3 text-right text-gray-600">{fmtMoney(it.tax, invoice.currency)}</td>
-                    <td className="px-4 py-3 text-right text-gray-900 font-medium">{fmtMoney(it.total, invoice.currency)}</td>
+                    <td className="px-4 py-3 text-right text-gray-600">{fmtMoney(it.unit_price)}</td>
+                    <td className="px-4 py-3 text-right text-gray-600">{fmtMoney(it.tax)}</td>
+                    <td className="px-4 py-3 text-right text-gray-900 font-medium">{fmtMoney(it.total)}</td>
                     <td className="px-4 py-3 text-right">
                       {invoice.status === "DRAFT" && (
                         <button type="button" className="btn-link text-red-600" onClick={() => handleItemRemove(it.id)}>
@@ -261,7 +269,7 @@ const InvoiceDetails: React.FC = () => {
                     <tr key={p.id} className="bg-white">
                       <td className="px-4 py-3 font-medium text-gray-900">{p.payment_number}</td>
                       <td className="px-4 py-3 text-gray-600">{p.method}</td>
-                      <td className="px-4 py-3 text-right text-gray-900">{fmtMoney(p.amount, p.currency)}</td>
+                      <td className="px-4 py-3 text-right text-gray-900">{fmtMoney(p.amount)}</td>
                       <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
                     </tr>
                   ))}

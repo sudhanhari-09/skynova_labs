@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+﻿import React, { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../store/authStore"
 import Logo from "../components/Logo"
@@ -19,6 +19,18 @@ const Register: React.FC = () => {
     e.preventDefault()
     setError(null)
 
+    if (firstName.trim() && /^\d+$/.test(firstName.trim())) {
+      setError("Please enter a valid name.")
+      return
+    }
+    if (!email.trim()) {
+      setError("Email is required.")
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError("Please enter a valid email address.")
+      return
+    }
     if (password.length < 8) {
       setError("Password must be at least 8 characters.")
       return
@@ -40,15 +52,15 @@ const Register: React.FC = () => {
     try {
       await register(email, password, firstName || undefined, lastName || undefined, phone)
       navigate("/", { replace: true })
-    } catch (err: any) {
-      setError(err.message || "Registration failed. Please try again.")
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Registration failed. Please try again.")
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <div className="max-w-md mx-auto px-4 py-12">
+    <div className="max-w-md mx-auto site-container py-12">
       <div className="bg-white rounded-lg shadow-md p-8 space-y-6">
         <div className="text-center">
           <div className="flex justify-center mb-4">

@@ -40,7 +40,7 @@ const CaseStudies: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    load().catch((e) => setError(e.message))
+    load().catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load case studies."))
   }, [load])
 
   const save = () => {

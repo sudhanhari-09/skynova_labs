@@ -21,6 +21,8 @@ interface User {
   permissions: string[]
 }
 
+const LOGGED_IN_FLAG = "skynova_projects_has_logged_in"
+
 interface AuthContextValue {
   user: User | null
   isLoading: boolean
@@ -57,15 +59,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return
       }
 
+      // On fresh session (no prior explicit login), do NOT auto-authenticate.
+      // The hasLoggedIn flag is set only after the user explicitly logs in.
+      const hasLoggedIn = localStorage.getItem(LOGGED_IN_FLAG) === "true"
+      if (!hasLoggedIn) {
+        // First visit — clear any stale tokens and start unauthenticated.
+        setAuthToken(null)
+        localStorage.removeItem("access_token")
+        localStorage.removeItem("refresh_token")
+        localStorage.removeItem("user_email")
+        setUser(null)
+        setLoginStatus("unauthenticated")
+        setIsLoading(false)
+        return
+      }
+
       let validatedUser = await validateToken()
 
       if (!validatedUser) {
-        try {
-          await refreshAccessToken()
-          validatedUser = await validateToken()
-        } catch {
-          // Refresh failed — session is dead.
-        }
+        // Refresh failed — session is dead. Clear stale tokens.
+        setAuthToken(null)
+        localStorage.removeItem("access_token")
+        localStorage.removeItem("refresh_token")
+        localStorage.removeItem("user_email")
+        setUser(null)
+        setLoginStatus("unauthenticated")
       }
 
       if (cancelled) return
@@ -90,6 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const handleUnauthenticated = () => {
       setUser(null)
       setLoginStatus("unauthenticated")
+      localStorage.removeItem(LOGGED_IN_FLAG)
     }
     window.addEventListener("auth:unauthenticated", handleUnauthenticated)
 
@@ -105,6 +124,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const userData = await apiLogin(email, password)
       setUser(userData)
       setLoginStatus("authenticated")
+      localStorage.setItem(LOGGED_IN_FLAG, "true")
       return userData
     } catch (error: any) {
       setLoginStatus("unauthenticated")
@@ -136,6 +156,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setUser(null)
       setLoginStatus("unauthenticated")
+      localStorage.removeItem(LOGGED_IN_FLAG)
     }
   }
 

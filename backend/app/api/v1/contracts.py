@@ -9,10 +9,11 @@ from app.models.operations import Notification
 from app.services.notifications import create_notification, dispatch_event
 from app.core.config import settings
 from app.api.deps import get_current_user_dict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from decimal import Decimal
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+import re
 import secrets
 
 
@@ -21,28 +22,58 @@ router = APIRouter(prefix="/admin/contracts", tags=["admin-contracts"])
 
 # Pydantic Schemas
 
+def _validate_yyyy_mm_dd(value: Optional[str]) -> Optional[str]:
+    """Validate a date string is in strict YYYY-MM-DD format with exact 4-digit year,
+    valid month (01-12), and valid day for the month."""
+    if not value:
+        return value
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", value.strip())
+    if not m:
+        raise ValueError("Please enter a valid date in YYYY-MM-DD format.")
+    year_s, month_s, day_s = m.group(1), m.group(2), m.group(3)
+    year, month, day = int(year_s), int(month_s), int(day_s)
+    if month < 1 or month > 12:
+        raise ValueError("Please enter a valid date.")
+    days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    if (year % 4 == 0 and year % 100 != 0) or year % 400 == 0:
+        days_in_month[1] = 29
+    if day < 1 or day > days_in_month[month - 1]:
+        raise ValueError("Please enter a valid date.")
+    return value
+
+
 class ContractCreate(BaseModel):
     quotation_id: int
     quotation_version: str = "1"
     lead_id: int
     contact_id: int
     title: str = Field(..., min_length=1)
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
+    start_date: Optional[str] = Field(None, description="Start date in YYYY-MM-DD format")
+    end_date: Optional[str] = Field(None, description="End date in YYYY-MM-DD format")
     scope: Optional[str] = None
     deliverables: Optional[str] = None
     payment_terms: Optional[str] = None
     terms_and_conditions: Optional[str] = None
+
+    @field_validator("start_date", "end_date", mode="before")
+    @classmethod
+    def validate_date_fields(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_yyyy_mm_dd(v)
 
 
 class ContractUpdate(BaseModel):
     title: Optional[str] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
+    start_date: Optional[str] = Field(None, description="Start date in YYYY-MM-DD format")
+    end_date: Optional[str] = Field(None, description="End date in YYYY-MM-DD format")
     scope: Optional[str] = None
     deliverables: Optional[str] = None
     payment_terms: Optional[str] = None
     terms_and_conditions: Optional[str] = None
+
+    @field_validator("start_date", "end_date", mode="before")
+    @classmethod
+    def validate_date_fields(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_yyyy_mm_dd(v)
 
 
 class ContractResponse(BaseModel):

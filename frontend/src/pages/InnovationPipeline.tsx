@@ -1,4 +1,4 @@
-import React from "react"
+﻿import React from "react"
 import { Link } from "react-router-dom"
 import { usePageMeta } from "../hooks/usePageMeta"
 import { Sparkles, FlaskConical, Rocket, Cpu, Check } from "../components/icons"
@@ -66,7 +66,7 @@ const InnovationPipeline: React.FC = () => {
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 py-16" aria-labelledby="pipeline-heading">
+      <section className="max-w-7xl mx-auto site-container py-16" aria-labelledby="pipeline-heading">
         <h2 id="pipeline-heading" className="sr-only">Pipeline stages</h2>
 
         {/* Desktop: horizontal stepper */}
@@ -117,7 +117,7 @@ const InnovationPipeline: React.FC = () => {
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 pb-16">
+      <section className="max-w-7xl mx-auto site-container pb-16">
         <div className="card bg-slate-900 text-white p-8 text-center">
           <h2 className="text-2xl font-bold mb-3">Have an idea worth moving forward?</h2>
           <p className="text-gray-300 mb-6 max-w-xl mx-auto">

@@ -17,9 +17,10 @@ from app.models.auth import User, Role, UserRole, Permission, RolePermission
 from app.models.operations import Notification
 from app.models.spec import TokenSession, LoginAttempt
 from app.services.notifications import create_notification
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
 from datetime import timedelta, datetime, timezone
+from app.services.validation import validate_phone
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -32,6 +33,11 @@ class UserRegister(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     phone: str
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone_field(cls, v: str) -> str:
+        return validate_phone(v)
 
 
 class UserLogin(BaseModel):

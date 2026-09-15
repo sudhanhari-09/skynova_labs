@@ -22,7 +22,7 @@ const Journal: React.FC = () => {
     setError(null)
     fetchJournalArticles()
       .then((data) => active && setArticles(data))
-      .catch((e: any) => active && setError(e.message))
+      .catch((e: unknown) => active && setError(e instanceof Error ? e.message : "Failed to load journal articles."))
       .finally(() => active && setLoading(false))
     return () => {
       active = false

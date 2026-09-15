@@ -36,7 +36,7 @@ const Team: React.FC = () => {
   const load = useCallback(() => {
     return Promise.all([fetchAdminUsers(), fetchRoles()])
       .then(([u, r]) => { setUsers(u); setRoles(r) })
-      .catch((e) => setError(e.message))
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load team data."))
   }, [])
 
   useEffect(() => { load() }, [load])

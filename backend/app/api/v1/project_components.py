@@ -5,7 +5,7 @@ store internal/public files attached to a project.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from decimal import Decimal
 from datetime import datetime
@@ -23,10 +23,10 @@ router = APIRouter(prefix="/projects/{project_id}", tags=["project-resources"])
 class ProjectComponentPayload(BaseModel):
     component_id: int
     quantity: int = 1
-    unit_cost: Optional[float] = None
-    unit_selling: Optional[float] = None
-    discount: float = 0
-    tax: float = 0
+    unit_cost: Optional[float] = Field(None, ge=0)
+    unit_selling: Optional[float] = Field(None, ge=0)
+    discount: float = Field(0, ge=0)
+    tax: float = Field(0, ge=0)
     notes: Optional[str] = None
 
 

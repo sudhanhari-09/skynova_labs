@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from app.db import get_db
 from app.models.auth import (
     QuoteRequest, Contact, Lead, ProjectType, ProjectSubcategory,
@@ -7,10 +8,15 @@ from app.models.auth import (
 )
 from app.models.operations import Notification
 from app.services.notifications import create_notification, dispatch_event
+from app.services.numbers import next_request_number, next_lead_number
 from app.core.config import settings
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic_core import PydanticCustomError
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta, date
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/admin/quote-requests", tags=["admin-quote-requests"])
@@ -36,6 +42,127 @@ class QuoteRequestPublicCreate(BaseModel):
     expected_launch: Optional[str] = None
     detailed_requirements: Optional[str] = None
     source: Optional[str] = "website"
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise PydanticCustomError('value_error', 'Please enter a valid name.')
+        if len(v) > 150:
+            raise PydanticCustomError('value_error', 'Name must be 150 characters or fewer.')
+        import re
+        if re.fullmatch(r'\d+', v):
+            raise PydanticCustomError('value_error', 'Please enter a valid name (not just numbers).')
+        return v
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise PydanticCustomError('value_error', 'Please enter a valid phone number.')
+        import re
+        if not re.fullmatch(r"[+]?[\d\s\-().]{7,20}", v):
+            raise PydanticCustomError('value_error', 'Please enter a valid phone number.')
+        return v
+
+    @field_validator("whatsapp")
+    @classmethod
+    def validate_whatsapp(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise PydanticCustomError('value_error', 'Please enter a valid WhatsApp number.')
+        import re
+        if not re.fullmatch(r"[+]?[\d\s\-().]{7,20}", v):
+            raise PydanticCustomError('value_error', 'Please enter a valid WhatsApp number.')
+        return v
+
+    @field_validator("budget")
+    @classmethod
+    def validate_budget(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            return None
+        v = v.strip()
+        import re
+        if not re.fullmatch(r"[1-9]\d{0,10}", v):
+            raise PydanticCustomError('value_error', 'Please enter a valid budget amount in INR.')
+        num = int(v)
+        if num < 1 or num > 99999999999:
+            raise PydanticCustomError('value_error', 'Please enter a valid budget amount in INR.')
+        return v
+
+    @field_validator("timeline")
+    @classmethod
+    def validate_timeline(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            return None
+        v = v.strip()
+        import re
+        if not re.fullmatch(r"[1-9]\d{0,2}", v):
+            raise PydanticCustomError('value_error', 'Please enter a valid timeline in months.')
+        num = int(v)
+        if num < 1 or num > 120:
+            raise PydanticCustomError('value_error', 'Please enter a valid timeline in months.')
+        return v
+
+    @field_validator("expected_launch")
+    @classmethod
+    def validate_expected_launch(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            return None
+        import re
+        m = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", v.strip())
+        if not m:
+            raise PydanticCustomError('value_error', 'Please enter a valid date in YYYY-MM-DD format.')
+        year, month, day = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if year < 1900 or year > 2100:
+            raise PydanticCustomError('value_error', 'Please enter a valid date in YYYY-MM-DD format.')
+        if month < 1 or month > 12:
+            raise PydanticCustomError('value_error', 'Please enter a valid date in YYYY-MM-DD format.')
+        days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        if (year % 4 == 0 and year % 100 != 0) or year % 400 == 0:
+            days_in_month[1] = 29
+        if day < 1 or day > days_in_month[month - 1]:
+            raise PydanticCustomError('value_error', 'Please enter a valid date in YYYY-MM-DD format.')
+        # Reject past dates — the expected_launch must be a future date
+        try:
+            input_date = datetime(year, month, day)
+            if input_date <= datetime.utcnow():
+                raise PydanticCustomError('value_error', 'Please enter a future date.')
+        except ValueError:
+            raise PydanticCustomError('value_error', 'Please enter a valid date in YYYY-MM-DD format.')
+        return v.strip()
+
+    @field_validator("company_name", "designation")
+    @classmethod
+    def validate_optional_text(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            return None
+        v = v.strip()
+        if len(v) < 2:
+            raise PydanticCustomError('value_error', 'Please enter a valid text.')
+        return v
+
+    @field_validator("target_audience", "existing_system")
+    @classmethod
+    def validate_optional_long_text(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            return None
+        v = v.strip()
+        if len(v) < 2:
+            raise PydanticCustomError('value_error', 'Please enter a valid text.')
+        return v
+
+    @field_validator("detailed_requirements")
+    @classmethod
+    def validate_requirements(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            raise PydanticCustomError('value_error', 'Please enter your requirements.')
+        v = v.strip()
+        if len(v) < 10:
+            raise PydanticCustomError('value_error', 'Please provide more detail in your requirements (at least 10 characters).')
+        return v
 
 
 class QuoteRequestPublicResponse(BaseModel):
@@ -102,64 +229,59 @@ async def create_quote_request(
             detail="Invalid subcategory for this project type",
         )
     
-    # Check for existing contact with same email
-    contact = db.query(Contact).filter(Contact.email == data.email).first()
+    # Check for existing contact with same email (normalize email for dedup)
+    normalized_email = data.email.strip().lower() if data.email else ""
+    contact = db.query(Contact).filter(Contact.email == normalized_email).first()
     if not contact:
+        name_parts = (data.name or "").strip().split()
         contact = Contact(
-            email=data.email,
-            first_name=data.name.split()[-1] if data.name else "",
-            last_name=" ".join(data.name.split()[:-1]) if data.name else "",
-            phone=data.phone,
-            whatsapp=data.whatsapp,
-            company_name=data.company_name,
-            designation=data.designation,
+            email=normalized_email,
+            first_name=name_parts[0] if name_parts else "",
+            last_name=" ".join(name_parts[1:]) if len(name_parts) > 1 else "",
+            phone=(data.phone or "").strip() or None,
+            whatsapp=(data.whatsapp or "").strip() or None,
+            company_name=(data.company_name or "").strip() or None,
+            designation=(data.designation or "").strip() or None,
         )
         db.add(contact)
         db.flush()
-    
-    # Create QuoteRequest
-    # Generate request number: PL-Q-XXXXXX
-    last_request = db.query(QuoteRequest).order_by(QuoteRequest.id.desc()).first()
-    if last_request:
-        last_num = int(last_request.request_number.split("-")[-1])
-        new_num = last_num + 1
     else:
-        new_num = 1
+        # Update existing contact with latest info from the submission
+        if data.phone and data.phone.strip():
+            contact.phone = data.phone.strip()
+        if data.whatsapp and data.whatsapp.strip():
+            contact.whatsapp = data.whatsapp.strip()
+        if data.company_name and data.company_name.strip():
+            contact.company_name = data.company_name.strip()
+        if data.designation and data.designation.strip():
+            contact.designation = data.designation.strip()
     
-    request_number = f"PL-Q-{new_num:06d}"
-    
+    # Create QuoteRequest — generate unique request number atomically
+    request_number = next_request_number(db)
     quote_request = QuoteRequest(
         request_number=request_number,
         project_type_id=project_type.id,
         subcategory_id=subcategory.id,
-        name=data.name,
-        email=data.email,
-        phone=data.phone,
-        whatsapp=data.whatsapp,
-        company_name=data.company_name,
-        designation=data.designation,
-        budget=data.budget,
-        timeline=data.timeline,
-        target_audience=data.target_audience,
-        existing_system=data.existing_system,
-        expected_launch=data.expected_launch,
-        detailed_requirements=data.detailed_requirements,
+        name=data.name.strip() if data.name else "",
+        email=data.email.strip().lower() if data.email else "",
+        phone=data.phone.strip() if data.phone else None,
+        whatsapp=data.whatsapp.strip() if data.whatsapp else None,
+        company_name=data.company_name.strip() if data.company_name else None,
+        designation=data.designation.strip() if data.designation else None,
+        budget=data.budget.strip() if data.budget else None,
+        timeline=data.timeline.strip() if data.timeline else None,
+        target_audience=data.target_audience.strip() if data.target_audience else None,
+        existing_system=data.existing_system.strip() if data.existing_system else None,
+        expected_launch=datetime.strptime(data.expected_launch, "%Y-%m-%d") if data.expected_launch else None,
+        detailed_requirements=data.detailed_requirements.strip() if data.detailed_requirements else None,
         status="NEW",
         source=data.source or "website",
     )
     db.add(quote_request)
     db.flush()
     
-    # Create Lead linked to QuoteRequest
-    last_lead = db.query(Lead).order_by(Lead.id.desc()).first()
-    if last_lead:
-        last_lead_num = int(last_lead.lead_number.split("-")[-1])
-        new_lead_num = last_lead_num + 1
-    else:
-        new_lead_num = 1
-    
-    lead_number = f"PL-L-{new_lead_num:06d}"
-    
+    # Create Lead — generate unique lead number atomically
+    lead_number = next_lead_number(db)
     lead = Lead(
         lead_number=lead_number,
         contact_id=contact.id,
@@ -169,8 +291,8 @@ async def create_quote_request(
         status="NEW",
         priority="MEDIUM",
         source=data.source or "website",
-        estimated_budget=data.budget,
-        estimated_timeline=data.timeline,
+        estimated_budget=data.budget.strip() if data.budget else None,
+        estimated_timeline=data.timeline.strip() if data.timeline else None,
     )
     db.add(lead)
     db.flush()
@@ -189,7 +311,7 @@ async def create_quote_request(
     
     # Create Follow-Up: Initial follow-up
     from app.models.auth import FollowUp
-    due_date = datetime.utcnow() + __import__('datetime').timedelta(days=3)
+    due_date = datetime.utcnow() + timedelta(days=3)
     followup = FollowUp(
         title="Initial follow-up on quote request",
         description=f"Follow up on quote request {quote_request.request_number}",

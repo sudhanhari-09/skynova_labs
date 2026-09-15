@@ -8,13 +8,14 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.api.deps import get_current_user, require_feature
 from app.models.auth import User
 from app.models.operations import Product, ProductVersion
+from app.services.validation import validate_slug
 
 
 router = APIRouter(prefix="/admin/products", tags=["admin-products"])
@@ -35,6 +36,13 @@ class ProductCreate(BaseModel):
     tags: Optional[List[str]] = None
     is_active: bool = True
 
+    @field_validator("slug")
+    @classmethod
+    def validate_slug_field(cls, v):
+        if v is None:
+            return v
+        return validate_slug(v)
+
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
@@ -46,6 +54,13 @@ class ProductUpdate(BaseModel):
     platform: Optional[List[str]] = None
     tags: Optional[List[str]] = None
     is_active: Optional[bool] = None
+
+    @field_validator("slug")
+    @classmethod
+    def validate_slug_field(cls, v):
+        if v is None:
+            return v
+        return validate_slug(v)
 
 
 class ProductResponse(BaseModel):

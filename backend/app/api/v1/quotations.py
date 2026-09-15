@@ -8,7 +8,8 @@ from app.models.auth import (
 from app.models.operations import Notification
 from app.services.notifications import create_notification, dispatch_event
 from app.api.deps import get_current_user_dict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from pydantic_core import PydanticCustomError
 from typing import Optional, List
 from decimal import Decimal
 from datetime import datetime, timedelta
@@ -34,11 +35,18 @@ class QuotationCreate(BaseModel):
     lead_id: int
     contact_id: Optional[int] = None
     title: str = Field(..., min_length=1)
-    currency: str = "USD"
+    currency: str = "INR"
     validity_days: int = 30
     payment_terms: Optional[str] = None
     terms_and_conditions: Optional[str] = None
     customer_message: Optional[str] = None
+
+    @field_validator("currency")
+    @classmethod
+    def currency_must_be_inr(cls, v: str) -> str:
+        if v.upper() != "INR":
+            raise PydanticCustomError('value_error', 'Only INR currency is supported.')
+        return "INR"
 
 
 class QuotationUpdate(BaseModel):
@@ -48,6 +56,13 @@ class QuotationUpdate(BaseModel):
     payment_terms: Optional[str] = None
     terms_and_conditions: Optional[str] = None
     customer_message: Optional[str] = None
+
+    @field_validator("currency")
+    @classmethod
+    def currency_must_be_inr(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.upper() != "INR":
+            raise PydanticCustomError('value_error', 'Only INR currency is supported.')
+        return "INR" if v is not None else v
 
 
 class QuotationResponse(BaseModel):
@@ -773,7 +788,7 @@ async def quotation_pdf(
         discount=float(quotation.discount or 0),
         tax=float(quotation.tax or 0),
         total=float(quotation.total or 0),
-        currency=quotation.currency or "USD",
+        currency=quotation.currency or "INR",
         payment_terms=quotation.payment_terms,
         customer_message=quotation.customer_message,
     )

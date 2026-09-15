@@ -70,7 +70,7 @@ class PricingItem(TimeStampedModel):
     entity_name = Column(String, nullable=False)
     entity_ref = Column(Integer, nullable=True)  # optional related component/service/project
     price = Column(Numeric(14, 2), nullable=False)
-    currency = Column(String, default="USD", nullable=False)
+    currency = Column(String, default="INR", nullable=False)
     discount = Column(Numeric(14, 2), default=0, nullable=False)
     tax = Column(Numeric(14, 2), default=0, nullable=False)
     margin_percent = Column(Numeric(8, 2), nullable=True)

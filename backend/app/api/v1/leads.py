@@ -6,6 +6,7 @@ from app.models.auth import (
     Activity, FollowUp, LeadNote, Attachment, QuoteRequest
 )
 from app.services.notifications import create_notification, dispatch_event
+from app.services.numbers import next_lead_number
 from app.core.config import settings
 from app.api.deps import get_current_user_dict
 from pydantic import BaseModel, EmailStr, Field
@@ -101,7 +102,7 @@ async def create_lead_from_quote(
         )
     
     # Create lead
-    lead_number = f"PL-L-{quote_request.id:06d}"
+    lead_number = next_lead_number(db)
     
     lead = Lead(
         lead_number=lead_number,

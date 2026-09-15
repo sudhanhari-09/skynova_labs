@@ -89,9 +89,10 @@ const Collaborate: React.FC = () => {
     try {
       await submitCollaboration({ ...form, source: "collaborate" })
       setSent(true)
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to send message."
       setError(
-        `${err.message || "There was a problem sending your message."} The collaboration API is not available yet. In the meantime, use Start a Project or Get a Quote to reach our team.`
+        `${message} The collaboration API is not available yet. In the meantime, use Start a Project or Get a Quote to reach our team.`
       )
     } finally {
       setSending(false)
@@ -99,7 +100,7 @@ const Collaborate: React.FC = () => {
   }
 
   return (
-    <main id="main" className="max-w-6xl mx-auto px-4 py-16">
+    <main id="main" className="max-w-6xl mx-auto site-container py-16">
       <h1 className="text-3xl font-bold text-gray-900 mb-2">Collaborate with Project Labs</h1>
       <p className="text-gray-600 mb-10 max-w-3xl">
         There are many ways to work with us — whether you want to build, research,

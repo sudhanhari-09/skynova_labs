@@ -5,7 +5,7 @@ visibility and SEO metadata.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -13,6 +13,7 @@ from app.db import get_db
 from app.api.deps import get_current_user_dict
 from app.models.spec import CMSPage, PageSection, BlogPost
 from app.services.audit import log_action
+from app.services.validation import validate_name
 
 
 router = APIRouter(prefix="/cms", tags=["cms"])
@@ -36,6 +37,11 @@ class PagePayload(BaseModel):
     is_homepage: bool = False
     display_order: Optional[int] = 0
 
+    @field_validator("title")
+    @classmethod
+    def validate_title_field(cls, v: str) -> str:
+        return validate_name(v)
+
 
 class SectionPayload(BaseModel):
     section_key: str
@@ -49,6 +55,13 @@ class SectionPayload(BaseModel):
     display_order: Optional[int] = 0
     is_enabled: bool = True
     visibility: str = "PUBLIC"
+
+    @field_validator("title")
+    @classmethod
+    def validate_title_field(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            return None
+        return validate_name(v)
 
 
 class BlogPayload(BaseModel):
@@ -65,6 +78,11 @@ class BlogPayload(BaseModel):
     meta_description: Optional[str] = None
     related_project_id: Optional[int] = None
     related_research_id: Optional[int] = None
+
+    @field_validator("title")
+    @classmethod
+    def validate_title_field(cls, v: str) -> str:
+        return validate_name(v)
 
 
 class PagePatch(BaseModel):

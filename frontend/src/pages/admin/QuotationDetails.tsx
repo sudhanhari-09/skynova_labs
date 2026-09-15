@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { getQuotation, Quotation } from "../../services/api"
 import { Spinner } from "../../components/ui"
+import { fmtMoney } from "../../utils/currency"
 
 const statusClass: Record<string, string> = {
   DRAFT: "bg-gray-100 text-gray-800",
@@ -94,12 +95,12 @@ const QuotationDetails: React.FC = () => {
           <div>
             <dt className="text-gray-500">Total</dt>
             <dd className="text-lg font-semibold text-gray-900">
-              {quotation.currency || "USD"} {quotation.total ? Number(quotation.total).toLocaleString() : "—"}
+              {fmtMoney(quotation.total ? Number(quotation.total) : undefined)}
             </dd>
           </div>
           <div>
             <dt className="text-gray-500">Subtotal</dt>
-            <dd className="text-gray-900">{quotation.subtotal ? Number(quotation.subtotal).toLocaleString() : "—"}</dd>
+            <dd className="text-gray-900">{quotation.subtotal ? fmtMoney(Number(quotation.subtotal)) : "\u2014"}</dd>
           </div>
           <div>
             <dt className="text-gray-500">Estimate timeline</dt>

@@ -31,7 +31,7 @@ class Invoice(TimeStampedModel):
     status = Column(String, default="DRAFT", nullable=False)  # DRAFT, SENT, PARTIALLY_PAID, PAID, OVERDUE, CANCELLED
     issue_date = Column(DateTime, nullable=False, default=utcnow)
     due_date = Column(DateTime, nullable=True)
-    currency = Column(String, default="USD", nullable=False)
+    currency = Column(String, default="INR", nullable=False)
     subtotal = Column(Numeric(14, 2), default=0, nullable=False)
     discount = Column(Numeric(14, 2), default=0, nullable=False)
     discount_type = Column(String, default="percentage", nullable=False)  # percentage | amount
@@ -86,7 +86,7 @@ class Payment(TimeStampedModel):
     customer_name = Column(String, nullable=True)
     customer_email = Column(String, nullable=True)
     amount = Column(Numeric(14, 2), nullable=False)
-    currency = Column(String, default="USD", nullable=False)
+    currency = Column(String, default="INR", nullable=False)
     method = Column(String, nullable=False)  # CARD, BANK_TRANSFER, CASH, CHEQUE, ONLINE, OTHER
     reference = Column(String, nullable=True)
     status = Column(String, default="SUCCEEDED", nullable=False)  # PENDING, SUCCEEDED, FAILED, REFUNDED

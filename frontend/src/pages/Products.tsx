@@ -31,7 +31,7 @@ const Products: React.FC = () => {
   }, [])
 
   return (
-    <main id="main" className="max-w-7xl mx-auto px-4 py-16">
+    <main id="main" className="max-w-7xl mx-auto site-container py-16">
       <h1 className="text-3xl font-bold text-gray-900 mb-2">Products</h1>
       <p className="text-gray-600 mb-10 max-w-3xl">
         The reusable products Project Labs has turned into reliable, maintained

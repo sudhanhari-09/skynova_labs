@@ -5,6 +5,9 @@ const API_BASE_URL =
   (import.meta.env && (import.meta.env.VITE_API_URL || import.meta.env.EXPO_PUBLIC_API_URL)) ||
   "http://127.0.0.1:8000";
 
+export const CURRENCY_CODE = "INR" as const;
+export const CURRENCY_SYMBOL = "\u20B9" as const;
+
 export interface User {
   id: number;
   email: string;
@@ -30,6 +33,37 @@ export interface AuthContextValue {
 
 let authToken: string | null = null;
 let _refreshPromise: Promise<string | null> | null = null;
+
+import { normalizeApiError, type NormalizedApiError } from "../utils/apiErrors";
+export type { NormalizedApiError } from "../utils/apiErrors";
+
+/**
+ * Safely extract a user-readable error message from an API response.
+ * Handles JSON, plain text, empty bodies, and non-Error throws without crashing.
+ */
+export async function safeExtractApiError(response: Response, fallback: string): Promise<string> {
+  const result = await normalizeApiError(response, fallback);
+  return result.message;
+}
+
+/**
+ * Extract a full normalized error from an API response.
+ * Returns structured data including field-level errors for form display.
+ */
+export async function extractNormalizedError(response: Response, fallback: string): Promise<NormalizedApiError> {
+  return normalizeApiError(response, fallback);
+}
+
+/**
+ * Safely extract a human-readable error message from a non-ok response.
+ * Use this in inline handlers as a drop-in replacement for:
+ *   const errorData = await response.json(); throw new Error(errorData.detail || fallback)
+ * This version never crashes on non-JSON responses.
+ */
+async function safeThrowOnError(response: Response, fallback: string): Promise<never> {
+  const result = await normalizeApiError(response, fallback);
+  throw new Error(result.message);
+}
 
 // API client for authentication calls
 export async function apiRequest(
@@ -117,8 +151,7 @@ export async function login(email: string, password: string): Promise<User> {
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Login failed");
+    throw new Error(await safeExtractApiError(response, "Login failed"));
   }
 
   const data = await response.json();
@@ -150,8 +183,7 @@ export async function register(
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Registration failed");
+    throw new Error(await safeExtractApiError(response, "Registration failed"));
   }
 
   const data = await response.json();
@@ -393,10 +425,9 @@ export async function fetchProjects(
   params.append("page", String(page));
   params.append("page_size", String(pageSize));
 
-  const response = await apiRequest(`/admin/projects?${params.toString()}`);
+  const response = await apiRequest(`/admin/projects/?${params.toString()}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load projects");
+    await safeThrowOnError(response, "Failed to load projects");
   }
   return response.json();
 }
@@ -404,8 +435,7 @@ export async function fetchProjects(
 export async function getProject(projectId: number): Promise<Project> {
   const response = await apiRequest(`/admin/projects/${projectId}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load project");
+    await safeThrowOnError(response, "Failed to load project");
   }
   return response.json();
 }
@@ -416,8 +446,7 @@ export async function createProject(data: Partial<Project>): Promise<Project> {
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create project");
+    await safeThrowOnError(response, "Failed to create project");
   }
   return response.json();
 }
@@ -428,8 +457,7 @@ export async function updateProject(projectId: number, data: Partial<Project>): 
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to update project");
+    await safeThrowOnError(response, "Failed to update project");
   }
   return response.json();
 }
@@ -440,8 +468,7 @@ export async function changeProjectStatus(projectId: number, status: string): Pr
     body: JSON.stringify({ status }),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to change project status");
+    await safeThrowOnError(response, "Failed to change project status");
   }
   return response.json();
 }
@@ -452,8 +479,7 @@ export async function assignProjectManager(projectId: number, manager_id: number
     body: JSON.stringify({ manager_id }),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to assign project manager");
+    await safeThrowOnError(response, "Failed to assign project manager");
   }
   return response.json();
 }
@@ -461,8 +487,7 @@ export async function assignProjectManager(projectId: number, manager_id: number
 export async function fetchProjectMembers(projectId: number): Promise<ProjectMember[]> {
   const response = await apiRequest(`/admin/projects/${projectId}/members`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load project members");
+    await safeThrowOnError(response, "Failed to load project members");
   }
   return response.json();
 }
@@ -473,8 +498,7 @@ export async function addProjectMember(projectId: number, data: { user_id: numbe
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to add member");
+    await safeThrowOnError(response, "Failed to add member");
   }
   return response.json();
 }
@@ -484,16 +508,14 @@ export async function removeProjectMember(projectId: number, memberId: number): 
     method: "DELETE",
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to remove member");
+    await safeThrowOnError(response, "Failed to remove member");
   }
 }
 
 export async function fetchMilestones(projectId: number): Promise<Milestone[]> {
   const response = await apiRequest(`/admin/projects/${projectId}/milestones`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load milestones");
+    await safeThrowOnError(response, "Failed to load milestones");
   }
   return response.json();
 }
@@ -504,8 +526,7 @@ export async function createMilestone(projectId: number, data: Partial<Milestone
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create milestone");
+    await safeThrowOnError(response, "Failed to create milestone");
   }
   return response.json();
 }
@@ -516,8 +537,7 @@ export async function updateMilestone(projectId: number, milestoneId: number, da
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to update milestone");
+    await safeThrowOnError(response, "Failed to update milestone");
   }
   return response.json();
 }
@@ -536,8 +556,7 @@ export async function fetchTasks(
   const query = params.toString();
   const response = await apiRequest(`/admin/projects/${projectId}/tasks${query ? `?${query}` : ""}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load tasks");
+    await safeThrowOnError(response, "Failed to load tasks");
   }
   return response.json();
 }
@@ -548,8 +567,7 @@ export async function createTask(projectId: number, data: Partial<TaskItem>): Pr
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create task");
+    await safeThrowOnError(response, "Failed to create task");
   }
   return response.json();
 }
@@ -560,8 +578,7 @@ export async function updateTask(projectId: number, taskId: number, data: Partia
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to update task");
+    await safeThrowOnError(response, "Failed to update task");
   }
   return response.json();
 }
@@ -571,16 +588,14 @@ export async function deleteTask(projectId: number, taskId: number): Promise<voi
     method: "DELETE",
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to delete task");
+    await safeThrowOnError(response, "Failed to delete task");
   }
 }
 
 export async function fetchTaskComments(projectId: number, taskId: number): Promise<TaskComment[]> {
   const response = await apiRequest(`/admin/projects/${projectId}/tasks/${taskId}/comments`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load task comments");
+    await safeThrowOnError(response, "Failed to load task comments");
   }
   return response.json();
 }
@@ -591,8 +606,7 @@ export async function addTaskComment(projectId: number, taskId: number, content:
     body: JSON.stringify({ content, is_internal }),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to add comment");
+    await safeThrowOnError(response, "Failed to add comment");
   }
   return response.json();
 }
@@ -601,8 +615,7 @@ export async function fetchProjectUpdates(projectId: number, userVisibleOnly: bo
   const params = userVisibleOnly ? "?user_visible_only=true" : "";
   const response = await apiRequest(`/admin/projects/${projectId}/updates${params}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load updates");
+    await safeThrowOnError(response, "Failed to load updates");
   }
   return response.json();
 }
@@ -613,8 +626,7 @@ export async function createProjectUpdate(projectId: number, data: Partial<Proje
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create update");
+    await safeThrowOnError(response, "Failed to create update");
   }
   return response.json();
 }
@@ -622,8 +634,7 @@ export async function createProjectUpdate(projectId: number, data: Partial<Proje
 export async function fetchPublicProject(secureReference: string): Promise<any> {
   const response = await apiRequest(`/public/projects/${secureReference}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load project");
+    throw new Error(await safeExtractApiError(response, "Failed to load project"));
   }
   return response.json();
 }
@@ -638,8 +649,7 @@ export interface QuoteRequest {
 export async function fetchQuoteRequests(): Promise<QuoteRequest[]> {
   const response = await apiRequest("/admin/quote-requests");
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load quote requests");
+    throw new Error(await safeExtractApiError(response, "Failed to load quote requests"));
   }
   return response.json();
 }
@@ -697,8 +707,7 @@ export interface QuoteRequestResult {
 export async function listProjectTypes(): Promise<ProjectTypeSummary[]> {
   const response = await apiRequest("/admin/project-types/?active_only=true&limit=100");
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load project types");
+    throw new Error(await safeExtractApiError(response, "Failed to load project types"));
   }
   const data = await response.json();
   return Array.isArray(data) ? data : [];
@@ -707,8 +716,7 @@ export async function listProjectTypes(): Promise<ProjectTypeSummary[]> {
 export async function listProjectSubcategories(projectTypeId: number): Promise<ProjectSubcategorySummary[]> {
   const response = await apiRequest(`/admin/project-types/${projectTypeId}/subcategories?active_only=true`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load project subcategories");
+    throw new Error(await safeExtractApiError(response, "Failed to load project subcategories"));
   }
   const data = await response.json();
   return Array.isArray(data) ? data : [];
@@ -720,8 +728,11 @@ export async function submitQuoteRequest(payload: QuoteRequestPayload): Promise<
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to submit quote request");
+    const result = await normalizeApiError(response, "Failed to submit quote request");
+    const err = new Error(result.message) as Error & { fieldErrors?: Record<string, string>; status?: number };
+    err.fieldErrors = result.fieldErrors;
+    err.status = result.status;
+    throw err;
   }
   return response.json();
 }
@@ -732,8 +743,7 @@ export async function submitQuoteRequest(payload: QuoteRequestPayload): Promise<
 export async function getQuoteRequest(quoteRequestId: number): Promise<QuoteRequest> {
   const response = await apiRequest(`/admin/quote-requests/${quoteRequestId}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load quote request");
+    throw new Error(await safeExtractApiError(response, "Failed to load quote request"));
   }
   return response.json();
 }
@@ -744,8 +754,7 @@ export async function updateQuoteRequest(quoteRequestId: number, status: string)
     body: JSON.stringify({ status }),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to update quote request");
+    throw new Error(await safeExtractApiError(response, "Failed to update quote request"));
   }
   return response.json();
 }
@@ -768,8 +777,7 @@ export async function createProjectType(data: ProjectTypeInput): Promise<Project
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create project type");
+    await safeThrowOnError(response, "Failed to create project type");
   }
   return response.json();
 }
@@ -780,8 +788,7 @@ export async function updateProjectType(typeId: number, data: Partial<ProjectTyp
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to update project type");
+    await safeThrowOnError(response, "Failed to update project type");
   }
   return response.json();
 }
@@ -789,15 +796,21 @@ export async function updateProjectType(typeId: number, data: Partial<ProjectTyp
 export async function deleteProjectType(typeId: number): Promise<void> {
   const response = await apiRequest(`/admin/project-types/${typeId}`, { method: "DELETE" });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to deactivate project type");
+    await safeThrowOnError(response, "Failed to deactivate project type");
   }
 }
 
 function extractApiError(errorData: any): string {
   if (typeof errorData?.detail === "string") return errorData.detail;
   if (Array.isArray(errorData?.detail)) {
-    return errorData.detail.map((d: any) => d.msg || String(d)).join(". ");
+    return errorData.detail.map((d: any) => {
+      let msg = d.msg || String(d);
+      // Strip "Value error, " prefix from Pydantic messages
+      if (/^value\s+error,?\s*/i.test(msg)) {
+        msg = msg.replace(/^value\s+error,?\s*/i, "");
+      }
+      return msg;
+    }).join(". ");
   }
   return "An unexpected error occurred";
 }
@@ -805,8 +818,7 @@ function extractApiError(errorData: any): string {
 export async function listSubcategories(projectTypeId: number): Promise<ProjectSubcategorySummary[]> {
   const response = await apiRequest(`/admin/project-types/${projectTypeId}/subcategories?active_only=false`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(extractApiError(errorData) || "Failed to load subcategories");
+    await safeThrowOnError(response, "Failed to load subcategories");
   }
   const data = await response.json();
   return Array.isArray(data) ? data : [];
@@ -821,8 +833,7 @@ export async function createSubcategory(
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(extractApiError(errorData) || "Failed to create subcategory");
+    await safeThrowOnError(response, "Failed to create subcategory");
   }
   return response.json();
 }
@@ -861,8 +872,7 @@ export async function listRequirementQuestions(projectTypeId?: number): Promise<
   if (projectTypeId) params.append("project_type_id", String(projectTypeId));
   const response = await apiRequest(`/admin/requirement-questions/?${params.toString()}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load requirement questions");
+    await safeThrowOnError(response, "Failed to load requirement questions");
   }
   const data = await response.json();
   return Array.isArray(data) ? data : [];
@@ -874,8 +884,7 @@ export async function createRequirementQuestion(data: RequirementQuestionInput):
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create requirement question");
+    await safeThrowOnError(response, "Failed to create requirement question");
   }
   return response.json();
 }
@@ -889,8 +898,7 @@ export async function updateRequirementQuestion(
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to update requirement question");
+    await safeThrowOnError(response, "Failed to update requirement question");
   }
   return response.json();
 }
@@ -900,8 +908,7 @@ export async function toggleRequirementQuestion(questionId: number): Promise<voi
     method: "PATCH",
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to toggle requirement question");
+    await safeThrowOnError(response, "Failed to toggle requirement question");
   }
 }
 
@@ -988,10 +995,9 @@ export async function fetchLeads(
   if (owner) params.append("owner_id", String(owner));
   if (search) params.append("contact_email", search);
 
-  const response = await apiRequest(`/admin/leads?${params.toString()}`);
+  const response = await apiRequest(`/admin/leads/?${params.toString()}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load leads");
+    await safeThrowOnError(response, "Failed to load leads");
   }
   return response.json();
 }
@@ -999,8 +1005,7 @@ export async function fetchLeads(
 export async function fetchLeadDetail(leadId: number): Promise<{ lead: any; contact: any }> {
   const response = await apiRequest(`/admin/leads/${leadId}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load lead");
+    await safeThrowOnError(response, "Failed to load lead");
   }
   const data = await response.json();
 
@@ -1061,10 +1066,9 @@ export async function listQuotations(
   params.append("skip", String((page - 1) * pageSize));
   params.append("limit", String(pageSize));
 
-  const response = await apiRequest(`/admin/quotations?${params.toString()}`);
+  const response = await apiRequest(`/admin/quotations/?${params.toString()}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load quotations");
+    await safeThrowOnError(response, "Failed to load quotations");
   }
   const data = await response.json();
   return { quotations: Array.isArray(data) ? (data as Quotation[]) : [], total: Array.isArray(data) ? (data as Quotation[]).length : 0 };
@@ -1073,8 +1077,7 @@ export async function listQuotations(
 export async function getQuotation(quotationId: number): Promise<Quotation> {
   const response = await apiRequest(`/admin/quotations/${quotationId}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load quotation");
+    await safeThrowOnError(response, "Failed to load quotation");
   }
   return response.json();
 }
@@ -1089,10 +1092,9 @@ export async function listContracts(
   if (status) params.append("status", status);
   if (leadId) params.append("lead_id", String(leadId));
 
-  const response = await apiRequest(`/admin/contracts?${params.toString()}`);
+  const response = await apiRequest(`/admin/contracts/?${params.toString()}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load contracts");
+    await safeThrowOnError(response, "Failed to load contracts");
   }
   const data = await response.json();
   return { contracts: Array.isArray(data) ? (data as Contract[]) : [], total: Array.isArray(data) ? (data as Contract[]).length : 0 };
@@ -1101,8 +1103,7 @@ export async function listContracts(
 export async function getContract(contractId: number): Promise<Contract> {
   const response = await apiRequest(`/admin/contracts/${contractId}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load contract");
+    await safeThrowOnError(response, "Failed to load contract");
   }
   return response.json();
 }
@@ -1191,8 +1192,7 @@ export async function fetchInvoices(
   params.append("page_size", String(pageSize));
   const response = await apiRequest(`/admin/invoices/?${params.toString()}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load invoices");
+    await safeThrowOnError(response, "Failed to load invoices");
   }
   return response.json();
 }
@@ -1200,8 +1200,7 @@ export async function fetchInvoices(
 export async function getInvoice(invoiceId: number): Promise<Invoice> {
   const response = await apiRequest(`/admin/invoices/${invoiceId}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load invoice");
+    await safeThrowOnError(response, "Failed to load invoice");
   }
   return response.json();
 }
@@ -1212,8 +1211,7 @@ export async function createInvoice(data: Partial<Invoice> & { items?: Partial<I
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create invoice");
+    await safeThrowOnError(response, "Failed to create invoice");
   }
   return response.json();
 }
@@ -1224,8 +1222,7 @@ export async function updateInvoice(invoiceId: number, data: Partial<Invoice>): 
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to update invoice");
+    await safeThrowOnError(response, "Failed to update invoice");
   }
   return response.json();
 }
@@ -1235,8 +1232,7 @@ export async function sendInvoice(invoiceId: number): Promise<Invoice> {
     method: "POST",
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to send invoice");
+    await safeThrowOnError(response, "Failed to send invoice");
   }
   return response.json();
 }
@@ -1246,8 +1242,7 @@ export async function cancelInvoice(invoiceId: number): Promise<Invoice> {
     method: "POST",
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to cancel invoice");
+    await safeThrowOnError(response, "Failed to cancel invoice");
   }
   return response.json();
 }
@@ -1258,8 +1253,7 @@ export async function addInvoiceItem(invoiceId: number, data: Partial<InvoiceIte
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to add invoice item");
+    await safeThrowOnError(response, "Failed to add invoice item");
   }
   return response.json();
 }
@@ -1269,8 +1263,7 @@ export async function removeInvoiceItem(invoiceId: number, itemId: number): Prom
     method: "DELETE",
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to remove invoice item");
+    await safeThrowOnError(response, "Failed to remove invoice item");
   }
 }
 
@@ -1285,10 +1278,9 @@ export async function fetchPayments(
   if (status) params.append("status_filter", status);
   params.append("page", String(page));
   params.append("page_size", String(pageSize));
-  const response = await apiRequest(`/admin/payments?${params.toString()}`);
+  const response = await apiRequest(`/admin/payments/?${params.toString()}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load payments");
+    await safeThrowOnError(response, "Failed to load payments");
   }
   return response.json();
 }
@@ -1299,8 +1291,7 @@ export async function createPayment(data: Partial<Payment> & { metadata?: Record
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create payment");
+    await safeThrowOnError(response, "Failed to create payment");
   }
   return response.json();
 }
@@ -1353,10 +1344,9 @@ export async function fetchSupportTickets(
   if (priority) params.append("priority", priority);
   params.append("page", String(page));
   params.append("page_size", String(pageSize));
-  const response = await apiRequest(`/admin/support/tickets?${params.toString()}`);
+  const response = await apiRequest(`/admin/support/tickets/?${params.toString()}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load support tickets");
+    await safeThrowOnError(response, "Failed to load support tickets");
   }
   return response.json();
 }
@@ -1364,8 +1354,7 @@ export async function fetchSupportTickets(
 export async function getSupportTicket(ticketId: number): Promise<SupportTicket> {
   const response = await apiRequest(`/admin/support/tickets/${ticketId}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load support ticket");
+    await safeThrowOnError(response, "Failed to load support ticket");
   }
   return response.json();
 }
@@ -1376,8 +1365,7 @@ export async function createSupportTicket(data: Partial<SupportTicket>): Promise
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create support ticket");
+    await safeThrowOnError(response, "Failed to create support ticket");
   }
   return response.json();
 }
@@ -1388,8 +1376,7 @@ export async function updateSupportTicket(ticketId: number, data: Partial<Suppor
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to update support ticket");
+    await safeThrowOnError(response, "Failed to update support ticket");
   }
   return response.json();
 }
@@ -1400,8 +1387,7 @@ export async function addSupportMessage(ticketId: number, data: { content: strin
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to add message");
+    await safeThrowOnError(response, "Failed to add message");
   }
   return response.json();
 }
@@ -1430,8 +1416,7 @@ export async function fetchNotifications(unreadOnly: boolean = false, page: numb
   params.append("page_size", String(pageSize));
   const response = await apiRequest(`/admin/notifications/?${params.toString()}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load notifications");
+    await safeThrowOnError(response, "Failed to load notifications");
   }
   return response.json();
 }
@@ -1439,8 +1424,7 @@ export async function fetchNotifications(unreadOnly: boolean = false, page: numb
 export async function markNotificationRead(notificationId: number): Promise<Notification> {
   const response = await apiRequest(`/admin/notifications/${notificationId}/read`, { method: "POST" });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to mark notification read");
+    await safeThrowOnError(response, "Failed to mark notification read");
   }
   return response.json();
 }
@@ -1448,8 +1432,7 @@ export async function markNotificationRead(notificationId: number): Promise<Noti
 export async function markAllNotificationsRead(): Promise<void> {
   const response = await apiRequest("/admin/notifications/read-all", { method: "POST" });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to mark notifications read");
+    await safeThrowOnError(response, "Failed to mark notifications read");
   }
 }
 
@@ -1479,10 +1462,9 @@ export async function fetchCalendarEvents(start?: string, end?: string): Promise
   if (start) params.append("start", start);
   if (end) params.append("end", end);
   const query = params.toString();
-  const response = await apiRequest(`/admin/calendar?${query}`);
+  const response = await apiRequest(`/admin/calendar/?${query}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load calendar events");
+    await safeThrowOnError(response, "Failed to load calendar events");
   }
   return response.json();
 }
@@ -1493,8 +1475,21 @@ export async function createCalendarEvent(data: Partial<CalendarEvent>): Promise
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create event");
+    await safeThrowOnError(response, "Failed to create event");
+  }
+  return response.json();
+}
+
+export async function updateCalendarEvent(
+  eventId: number,
+  data: Partial<CalendarEvent>
+): Promise<CalendarEvent> {
+  const response = await apiRequest(`/admin/calendar/${eventId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    await safeThrowOnError(response, "Failed to update event");
   }
   return response.json();
 }
@@ -1502,8 +1497,7 @@ export async function createCalendarEvent(data: Partial<CalendarEvent>): Promise
 export async function deleteCalendarEvent(eventId: number): Promise<void> {
   const response = await apiRequest(`/admin/calendar/${eventId}`, { method: "DELETE" });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to delete event");
+    await safeThrowOnError(response, "Failed to delete event");
   }
 }
 
@@ -1538,10 +1532,9 @@ export interface AutomationRun {
 }
 
 export async function fetchAutomationRules(): Promise<AutomationRule[]> {
-  const response = await apiRequest("/admin/automation/rules");
+  const response = await apiRequest(`/admin/automation/rules/`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load automation rules");
+    await safeThrowOnError(response, "Failed to load automation rules");
   }
   return response.json();
 }
@@ -1552,8 +1545,7 @@ export async function createAutomationRule(data: Partial<AutomationRule>): Promi
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create rule");
+    await safeThrowOnError(response, "Failed to create rule");
   }
   return response.json();
 }
@@ -1564,8 +1556,7 @@ export async function updateAutomationRule(ruleId: number, data: Partial<Automat
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to update rule");
+    await safeThrowOnError(response, "Failed to update rule");
   }
   return response.json();
 }
@@ -1573,8 +1564,7 @@ export async function updateAutomationRule(ruleId: number, data: Partial<Automat
 export async function deleteAutomationRule(ruleId: number): Promise<void> {
   const response = await apiRequest(`/admin/automation/rules/${ruleId}`, { method: "DELETE" });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to delete rule");
+    await safeThrowOnError(response, "Failed to delete rule");
   }
 }
 
@@ -1582,10 +1572,9 @@ export async function fetchAutomationRuns(page: number = 1, pageSize: number = 5
   const params = new URLSearchParams();
   params.append("page", String(page));
   params.append("page_size", String(pageSize));
-  const response = await apiRequest(`/admin/automation/runs?${params.toString()}`);
+  const response = await apiRequest(`/admin/automation/runs/?${params.toString()}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load automation runs");
+    await safeThrowOnError(response, "Failed to load automation runs");
   }
   return response.json();
 }
@@ -1636,10 +1625,9 @@ export async function fetchProducts(
   if (search) params.append("search", search);
   params.append("page", String(page));
   params.append("page_size", String(pageSize));
-  const response = await apiRequest(`/admin/products?${params.toString()}`);
+  const response = await apiRequest(`/admin/products/?${params.toString()}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load products");
+    await safeThrowOnError(response, "Failed to load products");
   }
   return response.json();
 }
@@ -1650,8 +1638,7 @@ export async function createProduct(data: Partial<Product>): Promise<Product> {
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create product");
+    await safeThrowOnError(response, "Failed to create product");
   }
   return response.json();
 }
@@ -1662,8 +1649,7 @@ export async function updateProduct(productId: number, data: Partial<Product>): 
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to update product");
+    await safeThrowOnError(response, "Failed to update product");
   }
   return response.json();
 }
@@ -1671,8 +1657,7 @@ export async function updateProduct(productId: number, data: Partial<Product>): 
 export async function fetchProductVersions(productId: number): Promise<ProductVersion[]> {
   const response = await apiRequest(`/admin/products/${productId}/versions`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load versions");
+    await safeThrowOnError(response, "Failed to load versions");
   }
   return response.json();
 }
@@ -1683,8 +1668,7 @@ export async function createProductVersion(data: Partial<ProductVersion>): Promi
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create version");
+    await safeThrowOnError(response, "Failed to create version");
   }
   return response.json();
 }
@@ -1710,10 +1694,9 @@ export async function fetchReleases(productId?: number): Promise<ProductRelease[
   const params = new URLSearchParams();
   if (productId) params.append("product_id", String(productId));
   const query = params.toString();
-  const response = await apiRequest(`/admin/releases?${query}`);
+  const response = await apiRequest(`/admin/releases/?${query}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load releases");
+    await safeThrowOnError(response, "Failed to load releases");
   }
   return response.json();
 }
@@ -1724,8 +1707,7 @@ export async function createRelease(data: Partial<ProductRelease>): Promise<Prod
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create release");
+    await safeThrowOnError(response, "Failed to create release");
   }
   return response.json();
 }
@@ -1736,8 +1718,7 @@ export async function updateRelease(releaseId: number, data: Partial<ProductRele
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to update release");
+    await safeThrowOnError(response, "Failed to update release");
   }
   return response.json();
 }
@@ -1745,8 +1726,7 @@ export async function updateRelease(releaseId: number, data: Partial<ProductRele
 export async function markReleaseReleased(releaseId: number): Promise<ProductRelease> {
   const response = await apiRequest(`/admin/releases/${releaseId}/release`, { method: "POST" });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to mark release released");
+    await safeThrowOnError(response, "Failed to mark release released");
   }
   return response.json();
 }
@@ -1754,8 +1734,7 @@ export async function markReleaseReleased(releaseId: number): Promise<ProductRel
 export async function rollbackRelease(releaseId: number): Promise<ProductRelease> {
   const response = await apiRequest(`/admin/releases/${releaseId}/rollback`, { method: "POST" });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to rollback release");
+    await safeThrowOnError(response, "Failed to rollback release");
   }
   return response.json();
 }
@@ -1786,10 +1765,9 @@ export async function fetchRoadmapItems(
   if (priority) params.append("priority", priority);
   if (targetQuarter) params.append("target_quarter", targetQuarter);
   const query = params.toString();
-  const response = await apiRequest(`/admin/roadmap?${query}`);
+  const response = await apiRequest(`/admin/roadmap/?${query}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load roadmap items");
+    await safeThrowOnError(response, "Failed to load roadmap items");
   }
   return response.json();
 }
@@ -1800,8 +1778,7 @@ export async function createRoadmapItem(data: Partial<RoadmapItem>): Promise<Roa
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create roadmap item");
+    await safeThrowOnError(response, "Failed to create roadmap item");
   }
   return response.json();
 }
@@ -1812,8 +1789,7 @@ export async function updateRoadmapItem(itemId: number, data: Partial<RoadmapIte
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to update roadmap item");
+    await safeThrowOnError(response, "Failed to update roadmap item");
   }
   return response.json();
 }
@@ -1839,10 +1815,9 @@ export async function fetchPrototypes(status?: string): Promise<Prototype[]> {
   const params = new URLSearchParams();
   if (status) params.append("status_filter", status);
   const query = params.toString();
-  const response = await apiRequest(`/admin/prototypes?${query}`);
+  const response = await apiRequest(`/admin/prototypes/?${query}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load prototypes");
+    await safeThrowOnError(response, "Failed to load prototypes");
   }
   return response.json();
 }
@@ -1853,8 +1828,7 @@ export async function createPrototype(data: Partial<Prototype>): Promise<Prototy
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create prototype");
+    await safeThrowOnError(response, "Failed to create prototype");
   }
   return response.json();
 }
@@ -1865,8 +1839,7 @@ export async function updatePrototype(prototypeId: number, data: Partial<Prototy
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to update prototype");
+    await safeThrowOnError(response, "Failed to update prototype");
   }
   return response.json();
 }
@@ -1891,10 +1864,9 @@ export interface PublicConfig {
 }
 
 export async function fetchFeatureFlags(): Promise<FeatureFlag[]> {
-  const response = await apiRequest("/admin/feature-flags");
+  const response = await apiRequest("/admin/feature-flags/");
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to load feature flags");
+    await safeThrowOnError(response, "Failed to load feature flags");
   }
   return response.json();
 }
@@ -1905,8 +1877,7 @@ export async function createFeatureFlag(data: Partial<FeatureFlag>): Promise<Fea
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create feature flag");
+    await safeThrowOnError(response, "Failed to create feature flag");
   }
   return response.json();
 }
@@ -1914,8 +1885,7 @@ export async function createFeatureFlag(data: Partial<FeatureFlag>): Promise<Fea
 export async function toggleFeatureFlag(flagId: number): Promise<FeatureFlag> {
   const response = await apiRequest(`/admin/feature-flags/${flagId}/toggle`, { method: "POST" });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to toggle feature flag");
+    await safeThrowOnError(response, "Failed to toggle feature flag");
   }
   return response.json();
 }
@@ -1923,13 +1893,12 @@ export async function toggleFeatureFlag(flagId: number): Promise<FeatureFlag> {
 export async function deleteFeatureFlag(flagId: number): Promise<void> {
   const response = await apiRequest(`/admin/feature-flags/${flagId}`, { method: "DELETE" });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to delete feature flag");
+    await safeThrowOnError(response, "Failed to delete feature flag");
   }
 }
 
 export async function fetchPublicConfig(): Promise<PublicConfig> {
-  const response = await apiRequest("/public/config");
+  const response = await apiRequest("/public/config/");
   if (!response.ok) {
     throw new Error("Failed to load feature configuration");
   }
@@ -1964,8 +1933,7 @@ export interface PublicProduct {
 export async function fetchPublicProducts(): Promise<PublicProduct[]> {
   const response = await apiRequest("/public/products")
   if (!response.ok) {
-    const errorData = await response.json().catch(() => null)
-    throw new Error(errorData?.detail || "Failed to load public products")
+    await safeThrowOnError(response, "Failed to load public products");
   }
   const data = await response.json()
   return Array.isArray(data) ? data : (data?.products || [])
@@ -1974,8 +1942,7 @@ export async function fetchPublicProducts(): Promise<PublicProduct[]> {
 export async function fetchPublicProductBySlug(slug: string): Promise<PublicProduct> {
   const response = await apiRequest(`/public/products/${encodeURIComponent(slug)}`)
   if (!response.ok) {
-    const errorData = await response.json().catch(() => null)
-    throw new Error(errorData?.detail || "Product not found")
+    await safeThrowOnError(response, "Product not found");
   }
   return response.json()
 }
@@ -2013,8 +1980,7 @@ export async function submitStartProject(payload: StartProjectPayload): Promise<
     body: JSON.stringify(payload),
   })
   if (!response.ok) {
-    const errorData = await response.json().catch(() => null)
-    throw new Error(errorData?.detail || "Failed to submit project intake")
+    await safeThrowOnError(response, "Failed to submit project intake");
   }
   return response.json()
 }
@@ -2054,8 +2020,7 @@ export interface PortalPaymentResult {
 export async function fetchPortalInvoice(secureReference: string): Promise<PortalInvoice> {
   const response = await apiRequest(`/public/invoices/${secureReference}`);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Invoice not found");
+    await safeThrowOnError(response, "Invoice not found");
   }
   return response.json();
 }
@@ -2069,8 +2034,7 @@ export async function payPortalInvoice(
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Payment failed");
+    await safeThrowOnError(response, "Payment failed");
   }
   return response.json();
 }
@@ -2113,7 +2077,7 @@ export interface BuildLogEntry {
 }
 
 export async function fetchBuildLogEntries(): Promise<BuildLogEntry[]> {
-  const response = await apiRequest("/build-logs");
+  const response = await apiRequest("/build-logs/");
   if (!response.ok) {
     throw new Error("Build log API unavailable");
   }
@@ -2135,9 +2099,8 @@ export async function submitCollaboration(payload: CollaborationEnquiry): Promis
     method: "POST",
     body: JSON.stringify(payload),
   });
-if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Collaboration API unavailable");
+  if (!response.ok) {
+    await safeThrowOnError(response, "Collaboration API unavailable");
   }
   return response.json();
 }
@@ -2149,16 +2112,24 @@ if (!response.ok) {
 async function apiJson<T>(endpoint: string, options?: RequestInit, errorMsg = "Request failed"): Promise<T> {
   const response = await apiRequest(endpoint, options);
   if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-    let message = errorMsg;
-    if (errorData?.detail) {
-      if (Array.isArray(errorData.detail)) {
-        message = errorData.detail.map((e: any) => e.msg || String(e)).join(", ");
-      } else {
-        message = String(errorData.detail);
-      }
-    }
-    throw new Error(message);
+    const result = await normalizeApiError(response, errorMsg);
+    throw new Error(result.message);
+  }
+  return response.json() as Promise<T>;
+}
+
+/**
+ * Like apiJson but returns the full NormalizedApiError (with field errors) on failure.
+ * Use this for form submissions where field-level error mapping is needed.
+ */
+async function apiJsonStrict<T>(endpoint: string, options?: RequestInit, errorMsg = "Request failed"): Promise<T> {
+  const response = await apiRequest(endpoint, options);
+  if (!response.ok) {
+    const result = await normalizeApiError(response, errorMsg);
+    const err = new Error(result.message) as Error & { fieldErrors?: Record<string, string>; status?: number };
+    err.fieldErrors = result.fieldErrors;
+    err.status = result.status;
+    throw err;
   }
   return response.json() as Promise<T>;
 }
@@ -2192,11 +2163,11 @@ export interface NavItem {
 }
 
 export async function fetchPublicSite(): Promise<PublicSiteConfig> {
-  return apiJson<PublicSiteConfig>("/public/site");
+  return apiJson<PublicSiteConfig>("/public/site/");
 }
 
 export async function fetchNavigation(): Promise<NavItem[]> {
-  return apiJson<NavItem[]>("/navigation");
+  return apiJson<NavItem[]>("/navigation/");
 }
 
 export async function fetchAdminNav(): Promise<NavItem[]> {
@@ -2270,10 +2241,10 @@ export interface Industry {
 }
 
 export async function fetchServices(): Promise<Service[]> {
-  return apiJson<Service[]>("/services");
+  return apiJson<Service[]>("/services/");
 }
 export async function fetchAdminServices(): Promise<Service[]> {
-  return apiJson<Service[]>("/admin/services");
+  return apiJson<Service[]>("/admin/services/");
 }
 export async function createService(data: Partial<Service>): Promise<Service> {
   return apiJson<Service>("/admin/services/", { method: "POST", body: JSON.stringify(data) });
@@ -2286,10 +2257,10 @@ export async function deleteService(serviceId: number): Promise<void> {
 }
 
 export async function fetchTechnologies(): Promise<Technology[]> {
-  return apiJson<Technology[]>("/technologies");
+  return apiJson<Technology[]>("/technologies/");
 }
 export async function fetchAdminTechnologies(): Promise<Technology[]> {
-  return apiJson<Technology[]>("/admin/technologies");
+  return apiJson<Technology[]>("/admin/technologies/");
 }
 export async function createTechnology(data: Partial<Technology>): Promise<Technology> {
   return apiJson<Technology>("/admin/technologies/", { method: "POST", body: JSON.stringify(data) });
@@ -2302,10 +2273,10 @@ export async function deleteTechnology(technologyId: number): Promise<void> {
 }
 
 export async function fetchIndustries(): Promise<Industry[]> {
-  return apiJson<Industry[]>("/industries");
+  return apiJson<Industry[]>("/industries/");
 }
 export async function fetchAdminIndustries(): Promise<Industry[]> {
-  return apiJson<Industry[]>("/admin/industries");
+  return apiJson<Industry[]>("/admin/industries/");
 }
 export async function createIndustry(data: Partial<Industry>): Promise<Industry> {
   return apiJson<Industry>("/admin/industries/", { method: "POST", body: JSON.stringify(data) });
@@ -2335,7 +2306,7 @@ export async function fetchPartners(): Promise<Partner[]> { return apiJson<Partn
 export async function fetchAchievements(): Promise<Achievement[]> { return apiJson<Achievement[]>("/content/achievements"); }
 
 export async function createFaq(data: Partial<Faq>): Promise<Faq> {
-  return apiJson<Faq>("/admin/content/faqs", { method: "POST", body: JSON.stringify(data) });
+  return apiJson<Faq>("/admin/content/faqs/", { method: "POST", body: JSON.stringify(data) });
 }
 export async function updateFaq(faqId: number, data: Partial<Faq>): Promise<Faq> {
   return apiJson<Faq>(`/admin/content/faqs/${faqId}`, { method: "PATCH", body: JSON.stringify(data) });
@@ -2345,7 +2316,7 @@ export async function deleteFaq(faqId: number): Promise<void> {
 }
 
 export async function createTestimonial(data: Partial<Testimonial>): Promise<Testimonial> {
-  return apiJson<Testimonial>("/admin/content/testimonials", { method: "POST", body: JSON.stringify(data) });
+  return apiJson<Testimonial>("/admin/content/testimonials/", { method: "POST", body: JSON.stringify(data) });
 }
 export async function updateTestimonial(testimonialId: number, data: Partial<Testimonial>): Promise<Testimonial> {
   return apiJson<Testimonial>(`/admin/content/testimonials/${testimonialId}`, { method: "PATCH", body: JSON.stringify(data) });
@@ -2355,7 +2326,7 @@ export async function deleteTestimonial(testimonialId: number): Promise<void> {
 }
 
 export async function createTeamMember(data: Partial<TeamMember>): Promise<TeamMember> {
-  return apiJson<TeamMember>("/admin/content/team", { method: "POST", body: JSON.stringify(data) });
+  return apiJson<TeamMember>("/admin/content/team/", { method: "POST", body: JSON.stringify(data) });
 }
 export async function updateTeamMember(memberId: number, data: Partial<TeamMember>): Promise<TeamMember> {
   return apiJson<TeamMember>(`/admin/content/team/${memberId}`, { method: "PATCH", body: JSON.stringify(data) });
@@ -2365,7 +2336,7 @@ export async function deleteTeamMember(memberId: number): Promise<void> {
 }
 
 export async function createPartner(data: Partial<Partner>): Promise<Partner> {
-  return apiJson<Partner>("/admin/content/partners", { method: "POST", body: JSON.stringify(data) });
+  return apiJson<Partner>("/admin/content/partners/", { method: "POST", body: JSON.stringify(data) });
 }
 export async function updatePartner(partnerId: number, data: Partial<Partner>): Promise<Partner> {
   return apiJson<Partner>(`/admin/content/partners/${partnerId}`, { method: "PATCH", body: JSON.stringify(data) });
@@ -2375,7 +2346,7 @@ export async function deletePartner(partnerId: number): Promise<void> {
 }
 
 export async function createAchievement(data: Partial<Achievement>): Promise<Achievement> {
-  return apiJson<Achievement>("/admin/content/achievements", { method: "POST", body: JSON.stringify(data) });
+  return apiJson<Achievement>("/admin/content/achievements/", { method: "POST", body: JSON.stringify(data) });
 }
 export async function updateAchievement(achievementId: number, data: Partial<Achievement>): Promise<Achievement> {
   return apiJson<Achievement>(`/admin/content/achievements/${achievementId}`, { method: "PATCH", body: JSON.stringify(data) });
@@ -2509,7 +2480,7 @@ export async function subscribeNewsletter(email: string, name?: string): Promise
 
 export async function fetchSubmissions(formType?: string): Promise<PublicSubmission[]> {
   const query = formType ? `?form_type=${encodeURIComponent(formType)}` : "";
-  return apiJson<PublicSubmission[]>(`/admin/submissions${query}`);
+  return apiJson<PublicSubmission[]>(`/admin/submissions/${query ? query : ""}`);
 }
 export async function fetchNewsletterSubscribers(): Promise<NewsletterSubscriber[]> {
   return apiJson<NewsletterSubscriber[]>("/admin/submissions/newsletter");
@@ -2566,7 +2537,7 @@ export interface AuditStats {
 export async function fetchAuditLogs(limit = 200, module?: string): Promise<AuditLog[]> {
   const params = new URLSearchParams({ limit: String(limit) });
   if (module) params.append("module", module);
-  const data = await apiJson<{ count: number; items: AuditLog[] }>(`/admin/audit?${params.toString()}`);
+  const data = await apiJson<{ count: number; items: AuditLog[] }>(`/admin/audit/?${params.toString()}`);
   return data.items;
 }
 export async function fetchAuditStats(): Promise<AuditStats> {
@@ -2595,8 +2566,8 @@ export interface CaseStudy {
   meta_description?: string | null;
 }
 
-export async function fetchCaseStudies(): Promise<CaseStudy[]> { return apiJson<CaseStudy[]>("/case-studies"); }
-export async function fetchAdminCaseStudies(): Promise<CaseStudy[]> { return apiJson<CaseStudy[]>("/admin/case-studies"); }
+export async function fetchCaseStudies(): Promise<CaseStudy[]> { return apiJson<CaseStudy[]>("/case-studies/"); }
+export async function fetchAdminCaseStudies(): Promise<CaseStudy[]> { return apiJson<CaseStudy[]>("/admin/case-studies/"); }
 export async function createCaseStudy(data: Partial<CaseStudy>): Promise<CaseStudy> {
   return apiJson<CaseStudy>("/admin/case-studies/", { method: "POST", body: JSON.stringify(data) });
 }
@@ -2656,11 +2627,11 @@ export interface Experiment {
   created_at?: string;
 }
 
-export async function fetchResearch(): Promise<Research[]> { return apiJson<Research[]>("/research"); }
+export async function fetchResearch(): Promise<Research[]> { return apiJson<Research[]>("/research/"); }
 export async function fetchResearchBySlug(slug: string): Promise<Research> {
   return apiJson<Research>(`/research/${encodeURIComponent(slug)}`, undefined, "Research not found");
 }
-export async function fetchAdminResearch(): Promise<Research[]> { return apiJson<Research[]>("/admin/research"); }
+export async function fetchAdminResearch(): Promise<Research[]> { return apiJson<Research[]>("/admin/research/"); }
 export async function createResearch(data: Partial<Research>): Promise<Research> {
   return apiJson<Research>("/admin/research/", { method: "POST", body: JSON.stringify(data) });
 }
@@ -2671,11 +2642,11 @@ export async function deleteResearch(researchId: number): Promise<void> {
   await apiRequest(`/admin/research/${researchId}`, { method: "DELETE" });
 }
 
-export async function fetchExperiments(): Promise<Experiment[]> { return apiJson<Experiment[]>("/experiments"); }
+export async function fetchExperiments(): Promise<Experiment[]> { return apiJson<Experiment[]>("/experiments/"); }
 export async function fetchExperimentBySlug(slug: string): Promise<Experiment> {
   return apiJson<Experiment>(`/experiments/${encodeURIComponent(slug)}`, undefined, "Experiment not found");
 }
-export async function fetchAdminExperiments(): Promise<Experiment[]> { return apiJson<Experiment[]>("/admin/experiments"); }
+export async function fetchAdminExperiments(): Promise<Experiment[]> { return apiJson<Experiment[]>("/admin/experiments/"); }
 export async function createExperiment(data: Partial<Experiment>): Promise<Experiment> {
   return apiJson<Experiment>("/admin/experiments/", { method: "POST", body: JSON.stringify(data) });
 }
@@ -2686,7 +2657,7 @@ export async function deleteExperiment(experimentId: number): Promise<void> {
   await apiRequest(`/admin/experiments/${experimentId}`, { method: "DELETE" });
 }
 
-export async function fetchAdminBuildLogs(): Promise<BuildLogEntry[]> { return apiJson<BuildLogEntry[]>("/admin/build-logs"); }
+export async function fetchAdminBuildLogs(): Promise<BuildLogEntry[]> { return apiJson<BuildLogEntry[]>("/admin/build-logs/"); }
 export async function createBuildLog(data: Partial<BuildLogEntry>): Promise<BuildLogEntry> {
   return apiJson<BuildLogEntry>("/admin/build-logs/", { method: "POST", body: JSON.stringify(data) });
 }
@@ -2789,7 +2760,7 @@ export async function createInventoryMovement(data: {
   reference_number?: string | null;
   note?: string | null;
 }): Promise<InventoryMovement & { new_stock: number }> {
-  return apiJson<InventoryMovement & { new_stock: number }>("/inventory/movements", {
+  return apiJson<InventoryMovement & { new_stock: number }>("/inventory/movements/", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -2907,7 +2878,7 @@ export async function fetchClients(search?: string, statusFilter?: string): Prom
   const params = new URLSearchParams({ skip: "0", limit: "200" });
   if (search) params.append("search", search);
   if (statusFilter) params.append("status_filter", statusFilter);
-  return apiJson<Client[]>(`/clients?${params.toString()}`);
+  return apiJson<Client[]>(`/clients/?${params.toString()}`);
 }
 export async function fetchClient(clientId: number): Promise<ClientDetail> {
   return apiJson<ClientDetail>(`/clients/${clientId}`);
@@ -3063,7 +3034,7 @@ export interface KnowledgeArticle {
 export type KnowledgeArticleInput = Partial<KnowledgeArticle> & { title: string };
 
 export async function fetchKnowledgePublic(): Promise<(KnowledgeCategory & { articles: KnowledgeArticle[] })[]> {
-  return apiJson<(KnowledgeCategory & { articles: KnowledgeArticle[] })[]>("/knowledge/public");
+  return apiJson<(KnowledgeCategory & { articles: KnowledgeArticle[] })[]>("/knowledge/public/");
 }
 export async function fetchKnowledgeCategories(): Promise<KnowledgeCategory[]> {
   return apiJson<KnowledgeCategory[]>("/knowledge/categories");
@@ -3135,7 +3106,7 @@ export interface PermissionInfo {
 }
 
 export async function fetchAdminUsers(): Promise<AdminUser[]> {
-  return apiJson<AdminUser[]>("/admin/users");
+  return apiJson<AdminUser[]>("/admin/users/");
 }
 export async function createAdminUser(data: {
   email: string;

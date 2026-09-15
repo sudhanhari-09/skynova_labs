@@ -5,7 +5,7 @@ invoices via the new client_id columns.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -15,6 +15,7 @@ from app.models.spec import Client
 from app.models.auth import Contact, Quotation, Contract, Project
 from app.models.operations import Invoice
 from app.services.audit import log_action
+from app.services.validation import validate_name, validate_email_field, validate_phone
 
 
 router = APIRouter(prefix="/clients", tags=["clients"])
@@ -32,6 +33,23 @@ class ClientPayload(BaseModel):
     status: str = "ACTIVE"
     communication_history: Optional[List[dict]] = None
 
+    @field_validator("name")
+    @classmethod
+    def validate_name_field(cls, v: str) -> str:
+        return validate_name(v)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email_field(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            return None
+        return validate_email_field(v)
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone_field(cls, v: str) -> str:
+        return validate_phone(v)
+
 
 class ClientUpdatePayload(BaseModel):
     name: Optional[str] = None
@@ -44,6 +62,27 @@ class ClientUpdatePayload(BaseModel):
     notes: Optional[str] = None
     status: Optional[str] = None
     communication_history: Optional[List[dict]] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name_field(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            return None
+        return validate_name(v)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email_field(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            return None
+        return validate_email_field(v)
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone_field(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            return None
+        return validate_phone(v)
 
 
 def _serialize(db: Session, c: Client) -> dict:

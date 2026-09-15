@@ -22,7 +22,7 @@ const adminCommands: Command[] = [
   { id: "new-project", label: "New Project", group: "Admin", to: "/admin/projects/new", keywords: "create add project" },
   { id: "invoices", label: "Invoices", group: "Admin", to: "/admin/invoices", keywords: "billing billing statements" },
   { id: "payments", label: "Payments", group: "Admin", to: "/admin/payments", keywords: "revenue collections" },
-  { id: "calendar", label: "Calendar", group: "Admin", to: "/admin/calendar", keywords: "schedule events meetings" },
+  { id: "calendar", label: "Calendar", group: "Admin", to: "/admin/calendar/", keywords: "schedule events meetings" },
   { id: "support", label: "Support Desk", group: "Admin", to: "/admin/support", keywords: "tickets helpdesk issues" },
   { id: "products", label: "Products", group: "Admin", to: "/admin/products", keywords: "catalog portfolio" },
   { id: "clients", label: "Clients", group: "Admin", to: "/admin/clients", keywords: "customers accounts" },

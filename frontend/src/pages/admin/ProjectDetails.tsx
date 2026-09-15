@@ -408,10 +408,12 @@ const ProjectDetails: React.FC = () => {
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Currency</label>
                 <input
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                  value={project.currency}
-                  onChange={(e) => setProject({ ...project, currency: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-50 cursor-not-allowed"
+                  value="INR (₹)"
+                  readOnly
+                  tabIndex={-1}
                 />
+                <p className="text-xs text-gray-400 mt-1">Fixed — INR only</p>
               </div>
             </div>
             <button

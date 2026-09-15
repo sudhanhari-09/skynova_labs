@@ -4,6 +4,7 @@ import {
   markReleaseReleased, rollbackRelease, fetchProducts,
 } from "../../services/api"
 import { PageHeader, Skeleton, StateError, StatusBadge, EmptyState, Button, Alert } from "../../components/ui"
+import { validateDateString } from "../../utils/date"
 
 const Releases: React.FC = () => {
   const [releases, setReleases] = useState<any[]>([])
@@ -33,6 +34,12 @@ const Releases: React.FC = () => {
 
   const handleCreate = async () => {
     if (!form.name.trim() || !form.product_id) return
+    // Validate scheduled_for date format
+    const scheduledValidation = validateDateString(form.scheduled_for, { minYear: 1900, maxYear: 2100 })
+    if (!scheduledValidation.valid) {
+      setNotice(scheduledValidation.error || "Please enter a valid scheduled date.")
+      return
+    }
     setSaving(true)
     setNotice("")
     try {

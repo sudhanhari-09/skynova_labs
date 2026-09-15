@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useState } from "react"
+﻿import React, { useCallback, useEffect, useState } from "react"
 import { useParams, Link } from "react-router-dom"
 import { fetchPortalInvoice, payPortalInvoice } from "../services/api"
 import { PageHeader, Skeleton, StateError, StatusBadge, Button, Alert } from "./../components/ui"
+import { fmtMoney } from "../utils/currency"
 
 const ClientInvoicePortal: React.FC = () => {
   const { secureReference } = useParams<{ secureReference: string }>()
@@ -23,17 +24,14 @@ const ClientInvoicePortal: React.FC = () => {
       const data = await fetchPortalInvoice(secureReference)
       setInvoice(data)
       setAmount(String(data.balance))
-    } catch (e: any) {
-      setError(e.message || "Invoice not found")
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Invoice not found")
     } finally {
       setLoading(false)
     }
   }, [secureReference])
 
   useEffect(() => { load() }, [load])
-
-  const fmtMoney = (v?: number, cur = "USD") =>
-    `${cur} ${(Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
 
   const handlePay = async () => {
     const value = Number(amount)
@@ -51,8 +49,8 @@ const ClientInvoicePortal: React.FC = () => {
       await load()
       setShowPay(false)
       setNotice(`Payment ${result.payment_number} recorded. Thank you!`)
-    } catch (e: any) {
-      setNotice(e.message || "Payment failed")
+    } catch (e: unknown) {
+      setNotice(e instanceof Error ? e.message : "Payment failed")
     } finally {
       setSaving(false)
     }
@@ -60,7 +58,7 @@ const ClientInvoicePortal: React.FC = () => {
 
   return (
     <main className="site-main">
-      <div className="max-w-3xl mx-auto px-4 py-10">
+      <div className="max-w-3xl mx-auto site-container py-10">
         <Link to="/" className="text-sm text-blue-600 mb-4 inline-block">← Back to home</Link>
 
         {loading && <div className="card"><Skeleton className="h-6 w-full" rows={6} /></div>}
@@ -80,8 +78,8 @@ const ClientInvoicePortal: React.FC = () => {
               <dl className="def-list">
                 <div><dt>Issued</dt><dd>{new Date(invoice.issue_date).toLocaleDateString()}</dd></div>
                 <div><dt>Due</dt><dd>{invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : "—"}</dd></div>
-                <div><dt>Total</dt><dd className="text-green-600">{fmtMoney(invoice.total, invoice.currency)}</dd></div>
-                <div><dt>Balance</dt><dd className={invoice.balance > 0 ? "text-red-600" : "text-green-600"}>{fmtMoney(invoice.balance, invoice.currency)}</dd></div>
+                <div><dt>Total</dt><dd className="text-green-600">{fmtMoney(invoice.total)}</dd></div>
+                <div><dt>Balance</dt><dd className={invoice.balance > 0 ? "text-red-600" : "text-green-600"}>{fmtMoney(invoice.balance)}</dd></div>
               </dl>
             </div>
 
@@ -101,14 +99,14 @@ const ClientInvoicePortal: React.FC = () => {
                       <tr key={idx} className="bg-white">
                         <td className="px-4 py-3 text-gray-900 font-medium">{it.name}</td>
                         <td className="px-4 py-3 text-gray-600">{it.quantity}</td>
-                        <td className="px-4 py-3 text-right text-gray-900">{fmtMoney(it.total, invoice.currency)}</td>
+                        <td className="px-4 py-3 text-right text-gray-900">{fmtMoney(it.total)}</td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
                     <tr className="bg-gray-50">
                       <td colSpan={2} className="px-4 py-3 font-semibold text-gray-900">Total</td>
-                      <td className="px-4 py-3 text-right font-semibold text-gray-900">{fmtMoney(invoice.total, invoice.currency)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-gray-900">{fmtMoney(invoice.total)}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -143,7 +141,7 @@ const ClientInvoicePortal: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-3">
                   <Button onClick={handlePay} disabled={saving || !Number(amount)}>
-                    {saving ? "Processing…" : `Pay ${fmtMoney(Number(amount), invoice.currency)}`}
+                    {saving ? "Processing…" : `Pay ${fmtMoney(Number(amount))}`}
                   </Button>
                   <button type="button" className="btn-link" onClick={() => setShowPay(false)}>Cancel</button>
                 </div>

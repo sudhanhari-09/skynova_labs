@@ -7,10 +7,13 @@ import secrets
 from decimal import Decimal
 from datetime import datetime
 from typing import List, Optional
-
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from pydantic_core import PydanticCustomError
 from sqlalchemy.orm import Session
+import re
+
+from app.db import get_db
 
 from app.db import get_db
 from app.api.deps import get_current_user, require_feature
@@ -26,6 +29,34 @@ router = APIRouter(prefix="/admin/invoices", tags=["admin-invoices"])
 # Schemas
 # ---------------------------------------------------------------------------
 
+# ── Date validation ──────────────────────────────────────────────
+_DATE_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
+
+
+def _validate_yyyy_mm_dd_date(value: object) -> object:
+    """Validate a date value is in strict YYYY-MM-DD format with exact 4-digit year."""
+    if value is None or value == "":
+        return value
+    if isinstance(value, str):
+        m = _DATE_RE.match(value.strip())
+        if not m:
+            raise ValueError("Please enter a valid date in YYYY-MM-DD format.")
+        year_s, month_s, day_s = m.group(1), m.group(2), m.group(3)
+        year, month, day = int(year_s), int(month_s), int(day_s)
+        if month < 1 or month > 12:
+            raise ValueError("Please enter a valid date.")
+        days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        if (year % 4 == 0 and year % 100 != 0) or year % 400 == 0:
+            days_in_month[1] = 29
+        if day < 1 or day > days_in_month[month - 1]:
+            raise ValueError("Please enter a valid date.")
+    elif isinstance(value, datetime):
+        pass
+    else:
+        raise ValueError("Please enter a valid date in YYYY-MM-DD format.")
+    return value
+
+
 class InvoiceItemCreate(BaseModel):
     item_type: str = "Service"
     name: str = Field(..., min_length=1)
@@ -33,8 +64,8 @@ class InvoiceItemCreate(BaseModel):
     quantity: int = 1
     unit: Optional[str] = None
     unit_price: float = Field(..., ge=0)
-    discount: float = 0
-    tax: float = 0
+    discount: float = Field(0, ge=0)
+    tax: float = Field(0, ge=0)
     display_order: int = 0
     notes: Optional[str] = None
 
@@ -45,9 +76,9 @@ class InvoiceItemUpdate(BaseModel):
     description: Optional[str] = None
     quantity: Optional[int] = None
     unit: Optional[str] = None
-    unit_price: Optional[float] = None
-    discount: Optional[float] = None
-    tax: Optional[float] = None
+    unit_price: Optional[float] = Field(None, ge=0)
+    discount: Optional[float] = Field(None, ge=0)
+    tax: Optional[float] = Field(None, ge=0)
     display_order: Optional[int] = None
     notes: Optional[str] = None
 
@@ -60,26 +91,50 @@ class InvoiceCreate(BaseModel):
     lead_id: Optional[int] = None
     contact_id: Optional[int] = None
     description: Optional[str] = None
-    issue_date: Optional[datetime] = None
-    due_date: Optional[datetime] = None
-    currency: str = "USD"
-    discount: float = 0
+    issue_date: Optional[datetime] = Field(None, description="Issue date in YYYY-MM-DD format or ISO datetime")
+    due_date: Optional[datetime] = Field(None, description="Due date in YYYY-MM-DD format or ISO datetime")
+    currency: str = "INR"
+    discount: float = Field(0, ge=0)
     discount_type: str = "percentage"  # percentage | amount
-    tax: float = 0
+    tax: float = Field(0, ge=0)
     notes: Optional[str] = None
     items: List[InvoiceItemCreate] = []
+
+    @field_validator("issue_date", "due_date", mode="before")
+    @classmethod
+    def validate_date_fields(cls, v: object) -> object:
+        return _validate_yyyy_mm_dd_date(v)
+
+    @field_validator("currency")
+    @classmethod
+    def currency_must_be_inr(cls, v: str) -> str:
+        if v.upper() != "INR":
+            raise PydanticCustomError('value_error', 'Only INR currency is supported.')
+        return "INR"
 
 
 class InvoiceUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    due_date: Optional[datetime] = None
+    due_date: Optional[datetime] = Field(None, description="Due date in YYYY-MM-DD format or ISO datetime")
     currency: Optional[str] = None
-    discount: Optional[float] = None
+    discount: Optional[float] = Field(None, ge=0)
     discount_type: Optional[str] = None
-    tax: Optional[float] = None
+    tax: Optional[float] = Field(None, ge=0)
     notes: Optional[str] = None
     status: Optional[str] = None
+
+    @field_validator("due_date", mode="before")
+    @classmethod
+    def validate_due_date(cls, v: object) -> object:
+        return _validate_yyyy_mm_dd_date(v)
+
+    @field_validator("currency")
+    @classmethod
+    def currency_must_be_inr(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.upper() != "INR":
+            raise PydanticCustomError('value_error', 'Only INR currency is supported.')
+        return "INR" if v is not None else v
 
 
 class InvoiceItemResponse(BaseModel):
@@ -407,7 +462,7 @@ def invoice_pdf(
         discount=float(invoice.discount or 0),
         tax=float(invoice.tax or 0),
         total=float(invoice.total or 0),
-        currency=invoice.currency or "USD",
+        currency=invoice.currency or "INR",
         notes=invoice.notes,
     )
     return Response(

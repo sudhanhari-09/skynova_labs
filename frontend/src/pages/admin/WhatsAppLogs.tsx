@@ -60,7 +60,7 @@ const WhatsAppLogs: React.FC = () => {
     })
   }, [])
 
-  useEffect(() => { load().catch((e) => setError(e.message)) }, [load])
+  useEffect(() => { load().catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load WhatsApp logs.")) }, [load])
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()

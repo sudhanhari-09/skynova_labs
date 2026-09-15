@@ -41,7 +41,7 @@ const navGroups: { label: string; items: { to: string; label: string; end?: bool
     label: "Support & Automation",
     items: [
       { to: "/admin/support", label: "Support Desk", feature: "support" },
-      { to: "/admin/calendar", label: "Calendar", feature: "calendar" },
+      { to: "/admin/calendar/", label: "Calendar", feature: "calendar" },
       { to: "/admin/automation", label: "Automation", feature: "automation" },
     ],
   },
@@ -113,7 +113,7 @@ const pageTitles: Record<string, string> = {
   "/admin/payments": "Payments",
   "/admin/support": "Support Desk",
   "/admin/notifications": "Notifications",
-  "/admin/calendar": "Calendar",
+  "/admin/calendar/": "Calendar",
   "/admin/automation": "Automation",
   "/admin/products": "Products",
   "/admin/releases": "Releases",

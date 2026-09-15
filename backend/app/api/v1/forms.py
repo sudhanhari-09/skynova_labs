@@ -6,13 +6,15 @@ follow up. Public routes are rate-limited per IP.
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.api.deps import rate_limit, get_current_user_dict
 from app.models.spec import PublicSubmission, NewsletterSubscriber
 from app.services.audit import log_action
+from app.services.numbers import next_lead_number
+from app.services.validation import validate_phone
 
 
 router = APIRouter(prefix="/forms", tags=["public-forms"])
@@ -26,6 +28,11 @@ class ContactPayload(BaseModel):
     phone: str
     subject: Optional[str] = None
     message: str
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone_field(cls, v: str) -> str:
+        return validate_phone(v)
 
 
 class StartProjectPayload(BaseModel):
@@ -41,6 +48,11 @@ class StartProjectPayload(BaseModel):
     idea: str
     expected_outcome: Optional[str] = None
 
+    @field_validator("phone")
+    @classmethod
+    def validate_phone_field(cls, v: str) -> str:
+        return validate_phone(v)
+
 
 class CollaborationPayload(BaseModel):
     name: str
@@ -49,6 +61,11 @@ class CollaborationPayload(BaseModel):
     company: Optional[str] = None
     collaboration_type: Optional[str] = None
     message: str
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone_field(cls, v: str) -> str:
+        return validate_phone(v)
 
 
 class NewsletterPayload(BaseModel):
@@ -173,7 +190,7 @@ def convert_submission(submission_id: int, db: Session = Depends(get_db),
         db.flush()
 
     lead = Lead(
-        lead_number=f"L-{datetime.utcnow():%Y%m%d}-{submission_id:04d}",
+        lead_number=next_lead_number(db),
         contact_id=contact.id,
         owner_id=None,
         status="NEW",

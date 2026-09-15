@@ -47,7 +47,7 @@ def upgrade():
         sa.Column('full_budget', sa.Numeric(precision=14, scale=2), nullable=True),
         sa.Column('reserved_budget', sa.Numeric(precision=14, scale=2), nullable=True),
         sa.Column('customer_budget', sa.Numeric(precision=14, scale=2), nullable=True),
-        sa.Column('currency', sa.String(), nullable=False, server_default='USD'),
+        sa.Column('currency', sa.String(), nullable=False, server_default='INR'),
         sa.Column('secure_reference', sa.String(), nullable=False),
         sa.Column('notes', sa.Text(), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=False),

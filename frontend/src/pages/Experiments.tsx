@@ -4,23 +4,32 @@ import { fetchExperiments, Experiment } from "../services/api"
 
 const STATUS_OPTIONS = ["All", "PLANNING", "ACTIVE", "TESTING", "COMPLETED", "ARCHIVED"]
 
+// Terminal states: experiments that produced (or stopped producing) results.
+const TERMINAL = new Set(["COMPLETED", "SUCCESSFUL", "FAILED", "ARCHIVED"])
+
 function statusClass(status: string): string {
-  const s = (status || "").toLowerCase()
-  if (s === "active") return "experiment-card__status--active"
-  if (s === "testing" || s === "validating") return "experiment-card__status--testing"
-  if (s === "completed") return "experiment-card__status--completed"
-  if (s === "archived") return "experiment-card__status--archived"
+  const s = (status || "").toLowerCase().replace(/[_\s]/g, "")
+  if (["active", "running", "inlab"].includes(s)) return "experiment-card__status--active"
+  if (["testing", "validating", "verifying"].includes(s)) return "experiment-card__status--testing"
+  if (["completed", "successful", "done"].includes(s)) return "experiment-card__status--completed"
+  if (["failed", "cancelled", "canceled"].includes(s)) return "experiment-card__status--failed"
+  if (["archived"].includes(s)) return "experiment-card__status--archived"
   return "experiment-card__status--planning"
+}
+
+function statusLabel(status: string | null | undefined, fallback = "Planning"): string {
+  return (status || fallback).replace(/_/g, " ")
 }
 
 const Experiments: React.FC = () => {
   const [items, setItems] = useState<Experiment[] | null>(null)
   const [activeStatus, setActiveStatus] = useState("All")
+  const [loadError, setLoadError] = useState(false)
 
   const load = useCallback(() => {
     fetchExperiments()
-      .then(setItems)
-      .catch(() => setItems([]))
+      .then((data) => { setItems(data); setLoadError(false) })
+      .catch(() => { setItems([]); setLoadError(true) })
   }, [])
   useEffect(() => { load() }, [load])
 
@@ -36,8 +45,14 @@ const Experiments: React.FC = () => {
     return items.filter((e) => (e.status || "").toUpperCase() === activeStatus)
   }, [items, activeStatus])
 
-  const activeCount = items ? items.filter((e) => (e.status || "").toLowerCase() === "active").length : 0
-  const completedCount = items ? items.filter((e) => (e.status || "").toLowerCase() === "completed").length : 0
+  const activeItems = filteredItems.filter((e) => !TERMINAL.has((e.status || "").toUpperCase()))
+  const completedItems = filteredItems.filter((e) => TERMINAL.has((e.status || "").toUpperCase()))
+
+  const activeTotal = items ? items.filter((e) => !TERMINAL.has((e.status || "").toUpperCase())).length : 0
+  const completedTotal = items ? items.filter((e) => TERMINAL.has((e.status || "").toUpperCase())).length : 0
+  const testingTotal = items ? items.filter((e) => ["TESTING", "VALIDATING"].includes((e.status || "").toUpperCase())).length : 0
+
+  const clearFilters = () => setActiveStatus("All")
 
   return (
     <div className="experiments-page">
@@ -53,22 +68,42 @@ const Experiments: React.FC = () => {
             each experiment follows a structured process from hypothesis to conclusion.
           </p>
           {items && items.length > 0 && (
-            <div className="experiments-hero__pipeline">
-              {[
-                { label: "Hypothesis", active: true },
-                { label: "Active", active: activeCount > 0 },
-                { label: "Testing", active: false },
-                { label: "Results", active: completedCount > 0 },
-              ].map((step, i, arr) => (
-                <React.Fragment key={step.label}>
-                  <div className="experiments-hero__pipeline-step">
-                    <span className={`experiments-hero__pipeline-dot ${step.active ? "experiments-hero__pipeline-dot--active" : ""}`} />
-                    {step.label}
-                  </div>
-                  {i < arr.length - 1 && <span className="experiments-hero__pipeline-arrow">→</span>}
-                </React.Fragment>
-              ))}
-            </div>
+            <>
+              <div className="experiments-hero__pipeline">
+                {[
+                  { label: "Hypothesis", active: true },
+                  { label: "In the Lab", active: activeTotal > 0 },
+                  { label: "Testing", active: testingTotal > 0 },
+                  { label: "Results", active: completedTotal > 0 },
+                ].map((step, i, arr) => (
+                  <React.Fragment key={step.label}>
+                    <div className="experiments-hero__pipeline-step">
+                      <span className={`experiments-hero__pipeline-dot ${step.active ? "experiments-hero__pipeline-dot--active" : ""}`} />
+                      {step.label}
+                    </div>
+                    {i < arr.length - 1 && <span className="experiments-hero__pipeline-arrow">→</span>}
+                  </React.Fragment>
+                ))}
+              </div>
+              <div className="experiments-hero__stats">
+                <div className="experiments-hero__stat">
+                  <span className="experiments-hero__stat-value">{items.length}</span>
+                  <span className="experiments-hero__stat-label">Total Experiments</span>
+                </div>
+                <div className="experiments-hero__stat">
+                  <span className="experiments-hero__stat-value">{activeTotal}</span>
+                  <span className="experiments-hero__stat-label">In the Lab</span>
+                </div>
+                <div className="experiments-hero__stat">
+                  <span className="experiments-hero__stat-value">{testingTotal}</span>
+                  <span className="experiments-hero__stat-label">Testing</span>
+                </div>
+                <div className="experiments-hero__stat">
+                  <span className="experiments-hero__stat-value">{completedTotal}</span>
+                  <span className="experiments-hero__stat-label">Results</span>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </section>
@@ -82,6 +117,7 @@ const Experiments: React.FC = () => {
               <button
                 key={s}
                 onClick={() => setActiveStatus(s)}
+                aria-pressed={activeStatus === s}
                 className={`experiments-status-btn ${activeStatus === s ? "experiments-status-btn--active" : ""}`}
               >
                 {s === "All" ? "All Experiments" : s.replace(/_/g, " ")}
@@ -90,8 +126,17 @@ const Experiments: React.FC = () => {
           </div>
         )}
 
+        {/* Error state */}
+        {loadError && (
+          <div className="experiments-empty experiments-empty--error" role="alert">
+            <h2 className="experiments-empty__title">We couldn’t load the experiment log</h2>
+            <p>The lab service is temporarily unavailable. Please try again shortly.</p>
+            <button type="button" onClick={load} className="btn-primary" style={{ marginTop: "1rem" }}>Retry</button>
+          </div>
+        )}
+
         {/* Loading */}
-        {items === null && (
+        {!loadError && items === null && (
           <div className="experiments-grid">
             {[1, 2].map((i) => (
               <div key={i} className="experiment-card animate-pulse" style={{ minHeight: 200 }}>
@@ -104,7 +149,7 @@ const Experiments: React.FC = () => {
         )}
 
         {/* Empty */}
-        {items && filteredItems.length === 0 && (
+        {!loadError && items && filteredItems.length === 0 && (
           <div className="experiments-empty">
             <h2 className="experiments-empty__title">
               {activeStatus !== "All" ? "No experiments in this status" : "No experiments published yet"}
@@ -115,52 +160,127 @@ const Experiments: React.FC = () => {
                 : "Our lab is gearing up. Experiments will appear here once they are running."}
             </p>
             {activeStatus !== "All" && (
-              <button onClick={() => setActiveStatus("All")} className="btn-primary" style={{ marginTop: "1rem" }}>
+              <button onClick={clearFilters} className="btn-primary" style={{ marginTop: "1rem" }}>
                 Show All Experiments
               </button>
             )}
           </div>
         )}
 
-        {/* Experiment cards */}
-        {filteredItems.length > 0 && (
-          <div className="experiments-grid">
-            {filteredItems.map((item) => (
-              <Link
-                key={item.id}
-                to={`/experiments/${item.slug}`}
-                className="experiment-card"
-              >
-                <div className="experiment-card__header">
-                  <span className={`experiment-card__status ${statusClass(item.status || "")}`}>
-                    {(item.status || "Planning").replace(/_/g, " ")}
-                  </span>
-                </div>
-                <h3 className="experiment-card__title">{item.title}</h3>
-                {(item.objective || item.description) && (
-                  <p className="experiment-card__objective">
-                    {((item.objective || item.description) || "").length > 150
-                      ? (item.objective || item.description || "").slice(0, 150) + "..."
-                      : (item.objective || item.description)}
-                  </p>
-                )}
-                {item.technologies && item.technologies.length > 0 && (
-                  <div className="experiment-card__tech">
-                    {item.technologies.slice(0, 4).map((t) => (
-                      <span key={t} className="experiment-card__tech-tag">{t}</span>
-                    ))}
-                    {item.technologies.length > 4 && (
-                      <span className="experiment-card__tech-tag">+{item.technologies.length - 4}</span>
-                    )}
+        {/* In the Lab — active experiments */}
+        {!loadError && activeItems.length > 0 && (
+          <section className="experiments-group experiments-group--active" aria-labelledby="exp-active-heading">
+            <div className="experiments-group__head">
+              <div>
+                <span className="experiments-section-label">In the Lab</span>
+                <h2 id="exp-active-heading" className="experiments-group__title">Active experiments</h2>
+              </div>
+              <p className="experiments-group__desc">
+                Experiments that are currently planned or running — from hypothesis through testing.
+              </p>
+            </div>
+            <div className="experiments-grid">
+              {activeItems.map((item) => (
+                <Link key={item.id} to={`/experiments/${item.slug}`} className="experiment-card">
+                  <div className="experiment-card__header">
+                    <span className={`experiment-card__status ${statusClass(item.status || "")}`}>
+                      <span className="experiment-card__status-led" aria-hidden="true" />
+                      {statusLabel(item.status)}
+                    </span>
                   </div>
-                )}
-                <div className="experiment-card__footer">
-                  <span />
-                  <span className="experiment-card__arrow">View experiment →</span>
-                </div>
-              </Link>
-            ))}
-          </div>
+                  <h3 className="experiment-card__title">{item.title}</h3>
+                  {(item.objective || item.hypothesis || item.description) && (
+                    <p className="experiment-card__objective">
+                      {((item.objective || item.hypothesis || item.description) || "").length > 150
+                        ? (item.objective || item.hypothesis || item.description || "").slice(0, 150) + "..."
+                        : (item.objective || item.hypothesis || item.description)}
+                    </p>
+                  )}
+                  {item.technologies && item.technologies.length > 0 && (
+                    <div className="experiment-card__tech">
+                      {item.technologies.slice(0, 4).map((t) => <span key={t} className="experiment-card__tech-tag">{t}</span>)}
+                      {item.technologies.length > 4 && <span className="experiment-card__tech-tag">+{item.technologies.length - 4}</span>}
+                    </div>
+                  )}
+                  <div className="experiment-card__footer">
+                    <span />
+                    <span className="experiment-card__arrow">View experiment →</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Results: completed experiments */}
+        {!loadError && completedItems.length > 0 && (
+          <section className="experiments-group experiments-group--results" aria-labelledby="exp-results-heading">
+            <div className="experiments-group__head">
+              <div>
+                <span className="experiments-section-label">Results</span>
+                <h2 id="exp-results-heading" className="experiments-group__title">Completed experiments</h2>
+              </div>
+              <p className="experiments-group__desc">
+                Experiments with recorded outcomes — conclusions, next steps and validated or disproven hypotheses.
+              </p>
+            </div>
+            <div className="experiments-grid">
+              {completedItems.map((item) => (
+                <Link key={item.id} to={`/experiments/${item.slug}`} className="experiment-card">
+                  <div className="experiment-card__header">
+                    <span className={`experiment-card__status ${statusClass(item.status || "")}`}>
+                      <span className="experiment-card__status-led" aria-hidden="true" />
+                      {statusLabel(item.status)}
+                    </span>
+                  </div>
+                  <h3 className="experiment-card__title">{item.title}</h3>
+                  {(item.conclusion || item.results || item.objective) && (
+                    <p className="experiment-card__objective">
+                      {((item.conclusion || item.results || item.objective) || "").length > 150
+                        ? (item.conclusion || item.results || item.objective || "").slice(0, 150) + "..."
+                        : (item.conclusion || item.results || item.objective)}
+                    </p>
+                  )}
+                  <div className="experiment-card__footer">
+                    <span />
+                    <span className="experiment-card__arrow">See results →</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Experiment library index */}
+        {!loadError && filteredItems.length > 0 && (
+          <section className="experiments-library" aria-labelledby="exp-library-heading">
+            <div className="experiments-group__head">
+              <div>
+                <span className="experiments-section-label">Experiment Library</span>
+                <h2 id="exp-library-heading" className="experiments-group__title">All experiments</h2>
+              </div>
+            </div>
+            <div className="experiment-index">
+              {filteredItems.map((item) => (
+                <Link key={item.id} to={`/experiments/${item.slug}`} className="experiment-index__row">
+                  <span className={`experiment-index__status ${statusClass(item.status || "")}`}>
+                    {statusLabel(item.status)}
+                  </span>
+                  <span className="experiment-index__main">
+                    <span className="experiment-index__title">{item.title}</span>
+                    {(item.objective || item.description) && (
+                      <span className="experiment-index__meta">
+                        {(item.objective || item.description || "").length > 90
+                          ? (item.objective || item.description || "").slice(0, 90) + "..."
+                          : (item.objective || item.description)}
+                      </span>
+                    )}
+                  </span>
+                  <span className="experiment-index__arrow">Open →</span>
+                </Link>
+              ))}
+            </div>
+          </section>
         )}
 
         {/* CTA */}

@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -16,6 +16,7 @@ from app.models.auth import User
 from app.models.operations import SupportTicket, SupportMessage
 from app.services.notifications import create_notification, dispatch_event
 from app.services.audit import log_action
+from app.services.validation import validate_email_field
 
 
 router = APIRouter(prefix="/admin/support", tags=["admin-support"])
@@ -38,6 +39,13 @@ class TicketCreate(BaseModel):
     assignee_id: Optional[int] = None
     status: str = "OPEN"
 
+    @field_validator("contact_email")
+    @classmethod
+    def validate_contact_email(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            return None
+        return validate_email_field(v)
+
 
 class TicketUpdate(BaseModel):
     subject: Optional[str] = None
@@ -48,6 +56,13 @@ class TicketUpdate(BaseModel):
     assignee_id: Optional[int] = None
     contact_name: Optional[str] = None
     contact_email: Optional[str] = None
+
+    @field_validator("contact_email")
+    @classmethod
+    def validate_contact_email(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            return None
+        return validate_email_field(v)
 
 
 class TicketMessageCreate(BaseModel):

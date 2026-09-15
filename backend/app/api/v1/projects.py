@@ -10,9 +10,12 @@ from app.models.operations import Notification
 from app.services.notifications import create_notification, dispatch_event
 from app.core.config import settings
 from app.api.deps import get_current_user_dict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from pydantic_core import PydanticCustomError
 from typing import Optional, List
 from datetime import datetime
+from datetime import date as date_type
+import re
 import secrets
 
 
@@ -22,6 +25,35 @@ router = APIRouter(prefix="/admin/projects", tags=["admin-projects"])
 # ============================================================
 # Pydantic Schemas
 # ============================================================
+
+# ── Date validation ──────────────────────────────────────────────
+_DATE_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
+
+
+def _validate_yyyy_mm_dd_date(value: object) -> object:
+    """Validate a date value is in strict YYYY-MM-DD format with exact 4-digit year.
+    Returns the value unchanged if valid; raises ValueError if not."""
+    if value is None or value == "":
+        return value
+    if isinstance(value, str):
+        m = _DATE_RE.match(value.strip())
+        if not m:
+            raise ValueError("Please enter a valid date in YYYY-MM-DD format.")
+        year_s, month_s, day_s = m.group(1), m.group(2), m.group(3)
+        year, month, day = int(year_s), int(month_s), int(day_s)
+        if month < 1 or month > 12:
+            raise ValueError("Please enter a valid date.")
+        days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        if (year % 4 == 0 and year % 100 != 0) or year % 400 == 0:
+            days_in_month[1] = 29
+        if day < 1 or day > days_in_month[month - 1]:
+            raise ValueError("Please enter a valid date.")
+    elif isinstance(value, datetime):
+        pass  # already a datetime object, accept it
+    else:
+        raise ValueError("Please enter a valid date in YYYY-MM-DD format.")
+    return value
+
 
 class ProjectCreate(BaseModel):
     title: str = Field(..., min_length=1)
@@ -34,13 +66,18 @@ class ProjectCreate(BaseModel):
     manager_id: Optional[int] = None
     project_type_id: Optional[int] = None
     subcategory_id: Optional[int] = None
-    start_date: Optional[datetime] = None
-    target_end_date: Optional[datetime] = None
-    full_budget: Optional[float] = None
-    reserved_budget: Optional[float] = None
-    customer_budget: Optional[float] = None
-    currency: str = "USD"
+    start_date: Optional[datetime] = Field(None, description="Start date in YYYY-MM-DD format or ISO datetime")
+    target_end_date: Optional[datetime] = Field(None, description="Target end date in YYYY-MM-DD format or ISO datetime")
+    full_budget: Optional[float] = Field(None, ge=0)
+    reserved_budget: Optional[float] = Field(None, ge=0)
+    customer_budget: Optional[float] = Field(None, ge=0)
+    currency: str = "INR"
     notes: Optional[str] = None
+
+    @field_validator("start_date", "target_end_date", mode="before")
+    @classmethod
+    def validate_date_fields(cls, v: object) -> object:
+        return _validate_yyyy_mm_dd_date(v)
 
 
 class ProjectUpdatePatch(BaseModel):
@@ -55,11 +92,16 @@ class ProjectUpdatePatch(BaseModel):
     start_date: Optional[datetime] = None
     target_end_date: Optional[datetime] = None
     actual_end_date: Optional[datetime] = None
-    full_budget: Optional[float] = None
-    reserved_budget: Optional[float] = None
-    customer_budget: Optional[float] = None
+    full_budget: Optional[float] = Field(None, ge=0)
+    reserved_budget: Optional[float] = Field(None, ge=0)
+    customer_budget: Optional[float] = Field(None, ge=0)
     currency: Optional[str] = None
     notes: Optional[str] = None
+
+    @field_validator("start_date", "target_end_date", "actual_end_date", mode="before")
+    @classmethod
+    def validate_date_fields(cls, v: object) -> object:
+        return _validate_yyyy_mm_dd_date(v)
 
 
 class ProjectStatusUpdate(BaseModel):

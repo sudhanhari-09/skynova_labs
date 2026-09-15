@@ -3,6 +3,7 @@ import { Link } from "react-router-dom"
 import {
   fetchPublicSite,
   fetchServices,
+  fetchPublicProjects,
   fetchResearch,
   fetchExperiments,
   fetchJournalArticles,
@@ -11,6 +12,7 @@ import {
   fetchPartners,
   Service,
   JournalArticle,
+  PublicProject,
 } from "../services/api"
 import { Skeleton } from "../components/ui"
 
@@ -48,6 +50,7 @@ const Home: React.FC = () => {
     subtitle: "SkyNova Project Labs is the innovation engine of SkyNova — combining research, experimentation and disciplined engineering to build software that solves real problems.",
   })
   const [services, setServices] = useState<Service[]>([])
+  const [projects, setProjects] = useState<PublicProject[]>([])
   const [research, setResearch] = useState<any[]>([])
   const [experiments, setExperiments] = useState<any[]>([])
   const [blog, setBlog] = useState<JournalArticle[]>([])
@@ -59,9 +62,10 @@ const Home: React.FC = () => {
   useEffect(() => {
     let active = true
     ;(async () => {
-      const [site, svc, res, exp, b, ts, ac, p] = await Promise.all([
+      const [site, svc, prj, res, exp, b, ts, ac, p] = await Promise.all([
         fetchPublicSite().catch(() => null),
         fetchServices().catch(() => []),
+        fetchPublicProjects({ limit: 3 }).catch(() => ({ projects: [] as PublicProject[], total: 0 })),
         fetchResearch().catch(() => []),
         fetchExperiments().catch(() => []),
         fetchJournalArticles().catch(() => []),
@@ -79,6 +83,7 @@ const Home: React.FC = () => {
         }))
       }
       setServices(svc)
+      setProjects(prj.projects)
       setResearch(res)
       setExperiments(exp)
       setBlog(b)
@@ -91,6 +96,16 @@ const Home: React.FC = () => {
   }, [])
 
   const serviceCards: any[] = services.length > 0 ? services : focusAreas
+
+  const activeExperiments = experiments.filter((e: any) =>
+    ["active", "running", "testing", "validating"].includes((e.status || "").toLowerCase())
+  )
+  const experimentPreview = activeExperiments.length > 0 ? activeExperiments : experiments
+
+  const formatShortDate = (d?: string | null): string => {
+    if (!d) return ""
+    return new Date(d).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+  }
 
   return (
     <main id="main">
@@ -115,7 +130,7 @@ const Home: React.FC = () => {
       </section>
 
       {loading ? (
-        <section className="max-w-7xl mx-auto px-4 py-16">
+        <section className="max-w-7xl mx-auto site-container py-16">
           <Skeleton className="h-6 w-48" />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
             <Skeleton className="h-40 w-full" />
@@ -126,7 +141,7 @@ const Home: React.FC = () => {
       ) : (
         <>
           {/* What We Do */}
-          <section className="max-w-7xl mx-auto px-4 py-16" aria-labelledby="what-we-do">
+          <section className="max-w-7xl mx-auto site-container py-16" aria-labelledby="what-we-do">
             <h2 id="what-we-do" className="text-3xl font-bold text-gray-900 mb-2">
               What we do
             </h2>
@@ -151,7 +166,7 @@ const Home: React.FC = () => {
 
           {/* Innovation Pipeline */}
           <section className="bg-slate-900 text-white" aria-labelledby="pipeline-heading">
-            <div className="max-w-7xl mx-auto px-4 py-16">
+            <div className="max-w-7xl mx-auto site-container py-16">
               <h2 id="pipeline-heading" className="text-3xl font-bold mb-2">
                 Our innovation pipeline
               </h2>
@@ -175,62 +190,130 @@ const Home: React.FC = () => {
             </div>
           </section>
 
-          {/* Latest from the lab */}
-          {(research.length > 0 || experiments.length > 0 || blog.length > 0) && (
-            <section className="max-w-7xl mx-auto px-4 py-16" aria-labelledby="lab-heading">
-              <h2 id="lab-heading" className="text-3xl font-bold text-gray-900 mb-2">
-                Latest from the lab
-              </h2>
-              <p className="text-gray-600 mb-8 max-w-3xl">
-                Recent work from our research, experiments and engineering teams.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {research.slice(0, 1).map((r) => (
-                  <article key={r.id} className="card flex flex-col">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-blue-600 mb-2">Research</span>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{r.title}</h3>
-                    {r.abstract && <p className="text-gray-600 text-sm leading-relaxed flex-1">{r.abstract}</p>}
-                    {r.status && <span className="mt-3 text-xs text-gray-500">{r.status.replace(/_/g, " ")}</span>}
-                    <Link to={`/research/${r.slug}`} className="btn-link mt-3 self-start inline-flex items-center gap-1">
-                      Read more <span aria-hidden="true">→</span>
-                    </Link>
-                  </article>
-                ))}
-                {experiments.slice(0, 1).map((e) => (
-                  <article key={e.id} className="card flex flex-col">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-emerald-600 mb-2">Experiment</span>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{e.title}</h3>
-                    {e.objective && <p className="text-gray-600 text-sm leading-relaxed flex-1">{e.objective}</p>}
-                    {e.status && <span className="mt-3 text-xs text-gray-500">{e.status.replace(/_/g, " ")}</span>}
-                    <Link to={`/experiments/${e.slug}`} className="btn-link mt-3 self-start inline-flex items-center gap-1">
-                      Read more <span aria-hidden="true">→</span>
-                    </Link>
-                  </article>
-                ))}
-                {blog.slice(0, 1).map((b) => (
-                  <article key={b.id} className="card flex flex-col">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-purple-600 mb-2">Blog</span>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{b.title}</h3>
-                    {b.excerpt && <p className="text-gray-600 text-sm leading-relaxed flex-1">{b.excerpt}</p>}
-                    {b.category && <span className="mt-3 text-xs text-gray-500">{b.category}</span>}
-                    <Link to={`/blog/${b.slug}`} className="btn-link mt-3 self-start inline-flex items-center gap-1">
-                      Read more <span aria-hidden="true">→</span>
-                    </Link>
-                  </article>
-                ))}
+          {/* Preview: Featured projects */}
+          {projects.length > 0 && (
+            <section className="home-preview site-container" aria-labelledby="home-projects-heading">
+              <div className="home-preview__head">
+                <div>
+                  <h2 id="home-projects-heading" className="home-preview__title">Featured projects</h2>
+                  <p className="home-preview__intro">Selected product builds from our portfolio.</p>
+                </div>
+                <Link to="/projects" className="home-preview__link">View all projects →</Link>
               </div>
-              <div className="flex flex-wrap gap-3 mt-8">
-                <Link to="/research" className="btn-secondary text-sm">All Research →</Link>
-                <Link to="/experiments" className="btn-secondary text-sm">All Experiments →</Link>
-                <Link to="/blog" className="btn-secondary text-sm">All Blog Posts →</Link>
+              <div className="home-preview__grid">
+                {projects.slice(0, 3).map((pr) => (
+                  <Link key={pr.project_number} to={`/project/${pr.project_number}`} className="home-preview-card home-preview-card--projects">
+                    <span className="home-preview-card__eyebrow">{pr.project_number}</span>
+                    <h3 className="home-preview-card__title">{pr.title}</h3>
+                    {pr.description && (
+                      <p className="home-preview-card__text">
+                        {pr.description.length > 110 ? pr.description.slice(0, 110) + "..." : pr.description}
+                      </p>
+                    )}
+                    <span className="home-preview-card__meta">
+                      <span className="home-preview-card__badge">{pr.status.replace(/_/g, " ")}</span>
+                      <span>{formatShortDate(pr.start_date)}</span>
+                    </span>
+                    <span className="home-preview-card__cta">View project →</span>
+                  </Link>
+                ))}
               </div>
             </section>
           )}
 
-          {/* Testimonials */}
+          {/* Preview: Latest research */}
+          {research.length > 0 && (
+            <section className="home-preview site-container" aria-labelledby="home-research-heading">
+              <div className="home-preview__head">
+                <div>
+                  <h2 id="home-research-heading" className="home-preview__title">Latest research</h2>
+                  <p className="home-preview__intro">Recent findings from the research program.</p>
+                </div>
+                <Link to="/research" className="home-preview__link">Explore research →</Link>
+              </div>
+              <div className="home-preview__grid">
+                {research.slice(0, 2).map((r: any) => (
+                  <Link key={r.id} to={`/research/${r.slug}`} className="home-preview-card home-preview-card--research">
+                    <span className="home-preview-card__eyebrow">{r.category || "Research"}</span>
+                    <h3 className="home-preview-card__title">{r.title}</h3>
+                    {(r.abstract || r.description) && (
+                      <p className="home-preview-card__text">
+                        {((r.abstract || r.description) || "").length > 110
+                          ? (r.abstract || r.description || "").slice(0, 110) + "..."
+                          : (r.abstract || r.description)}
+                      </p>
+                    )}
+                    <span className="home-preview-card__meta">
+                      <span className="home-preview-card__badge">{(r.status || "Proposed").replace(/_/g, " ")}</span>
+                    </span>
+                    <span className="home-preview-card__cta">Read the brief →</span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Preview: Active experiments */}
+          {experimentPreview.length > 0 && (
+            <section className="home-preview site-container" aria-labelledby="home-experiments-heading">
+              <div className="home-preview__head">
+                <div>
+                  <h2 id="home-experiments-heading" className="home-preview__title">Active experiments</h2>
+                  <p className="home-preview__intro">Live validations running in the lab.</p>
+                </div>
+                <Link to="/experiments" className="home-preview__link">Explore experiments →</Link>
+              </div>
+              <div className="home-preview__grid">
+                {experimentPreview.slice(0, 2).map((e: any) => (
+                  <Link key={e.id} to={`/experiments/${e.slug}`} className="home-preview-card home-preview-card--experiments">
+                    <span className="home-preview-card__eyebrow">Experiment</span>
+                    <h3 className="home-preview-card__title">{e.title}</h3>
+                    {(e.objective || e.hypothesis) && (
+                      <p className="home-preview-card__text">
+                        {((e.objective || e.hypothesis) || "").length > 110
+                          ? (e.objective || e.hypothesis || "").slice(0, 110) + "..."
+                          : (e.objective || e.hypothesis)}
+                      </p>
+                    )}
+                    <span className="home-preview-card__meta">
+                      <span className="home-preview-card__badge">{(e.status || "Planning").replace(/_/g, " ")}</span>
+                    </span>
+                    <span className="home-preview-card__cta">View experiment →</span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Preview: Latest journal */}
+          {blog.length > 0 && (
+            <section className="home-preview site-container" aria-labelledby="home-blog-heading">
+              <div className="home-preview__head">
+                <div>
+                  <h2 id="home-blog-heading" className="home-preview__title">Latest journal</h2>
+                  <p className="home-preview__intro">Stories and technical notes from the team.</p>
+                </div>
+                <Link to="/blog" className="home-preview__link">Read journal →</Link>
+              </div>
+              <div className="home-preview__grid">
+                {blog.slice(0, 3).map((b) => (
+                  <Link key={b.id} to={`/blog/${b.slug}`} className="home-preview-card home-preview-card--journal">
+                    <span className="home-preview-card__eyebrow">{b.category || "Journal"}</span>
+                    <h3 className="home-preview-card__title">{b.title}</h3>
+                    {b.excerpt && (
+                      <p className="home-preview-card__text">
+                        {b.excerpt.length > 110 ? b.excerpt.slice(0, 110) + "..." : b.excerpt}
+                      </p>
+                    )}
+                    <span className="home-preview-card__cta">Read article →</span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
           {testimonials.length > 0 && (
             <section className="bg-gray-50" aria-labelledby="testimonial-heading">
-              <div className="max-w-7xl mx-auto px-4 py-16">
+              <div className="max-w-7xl mx-auto site-container py-16">
                 <h2 id="testimonial-heading" className="text-3xl font-bold text-gray-900 mb-8">
                   What clients say
                 </h2>
@@ -251,7 +334,7 @@ const Home: React.FC = () => {
 
           {/* Achievements + partners */}
           {(achievements.length > 0 || partners.length > 0) && (
-            <section className="max-w-7xl mx-auto px-4 py-16" aria-labelledby="trust-heading">
+            <section className="max-w-7xl mx-auto site-container py-16" aria-labelledby="trust-heading">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                 {achievements.length > 0 && (
                   <div>
@@ -286,7 +369,7 @@ const Home: React.FC = () => {
           )}
 
           {/* CTA */}
-          <section className="max-w-7xl mx-auto px-4 py-16">
+          <section className="max-w-7xl mx-auto site-container py-16">
             <div className="card text-center py-12">
               <h2 className="text-2xl font-bold text-gray-900 mb-3">Have a project in mind?</h2>
               <p className="text-gray-600 mb-8 max-w-xl mx-auto">

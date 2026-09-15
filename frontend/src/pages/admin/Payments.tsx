@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { fetchPayments, createPayment } from "../../services/api"
 import { PageHeader, Skeleton, StateError, StatusBadge, EmptyState, Button, Alert } from "../../components/ui"
+import { fmtMoney } from "../../utils/currency"
+import { validateNonNegativeNumber } from "../../utils/validation"
 
 const Payments: React.FC = () => {
   const [payments, setPayments] = useState<any[]>([])
@@ -13,7 +15,7 @@ const Payments: React.FC = () => {
   const [notice, setNotice] = useState("")
   const [showNew, setShowNew] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ invoice_id: "", amount: "", method: "BANK_TRANSFER", currency: "USD", status: "SUCCEEDED", customer_email: "" })
+  const [form, setForm] = useState({ invoice_id: "", amount: "", method: "BANK_TRANSFER", currency: "INR", status: "SUCCEEDED", customer_email: "" })
 
   const load = useCallback(async (p: number, st: string) => {
     setLoading(true)
@@ -35,7 +37,9 @@ const Payments: React.FC = () => {
   }, [statusFilter, load])
 
   const handleCreate = async () => {
-    if (!Number(form.amount) || !Number(form.invoice_id)) return
+    if (!Number(form.invoice_id) || Number(form.invoice_id) < 1) return
+    if (!validateNonNegativeNumber(form.amount).valid || Number(form.amount) <= 0) return
+    if (form.customer_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.customer_email.trim())) return
     setSaving(true)
     setNotice("")
     try {
@@ -48,7 +52,7 @@ const Payments: React.FC = () => {
         customer_email: form.customer_email || undefined,
       })
       setShowNew(false)
-      setForm({ invoice_id: "", amount: "", method: "BANK_TRANSFER", currency: "USD", status: "SUCCEEDED", customer_email: "" })
+      setForm({ invoice_id: "", amount: "", method: "BANK_TRANSFER", currency: "INR", status: "SUCCEEDED", customer_email: "" })
       await load(page, statusFilter)
     } catch (e: any) {
       setNotice(e.message || "Failed to record payment")
@@ -56,9 +60,6 @@ const Payments: React.FC = () => {
       setSaving(false)
     }
   }
-
-  const fmtMoney = (v?: number, cur = "USD") =>
-    `${cur} ${(Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
 
   return (
     <main>
@@ -149,7 +150,7 @@ const Payments: React.FC = () => {
                     {p.invoice_id ? <Link className="text-primary" to={`/admin/invoices/${p.invoice_id}`}>{p.invoice_number || `#${p.invoice_id}`}</Link> : "—"}
                   </td>
                   <td className="px-4 py-3 text-gray-600">{p.method}</td>
-                  <td className="px-4 py-3 text-right text-gray-900 font-medium">{fmtMoney(p.amount, p.currency)}</td>
+                  <td className="px-4 py-3 text-right text-gray-900 font-medium">{fmtMoney(p.amount)}</td>
                   <td className="px-4 py-3 text-gray-600">{p.paid_at ? new Date(p.paid_at).toLocaleString() : "—"}</td>
                   <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
                 </tr>

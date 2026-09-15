@@ -1,7 +1,7 @@
 """Technologies module (spec §36) with public reads and admin CRUD."""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -9,6 +9,7 @@ from app.db import get_db
 from app.api.deps import get_current_user_dict
 from app.models.spec import Technology
 from app.services.audit import log_action
+from app.services.validation import validate_name, validate_slug
 
 
 router = APIRouter(prefix="/technologies", tags=["technologies"])
@@ -25,6 +26,18 @@ class TechnologyPayload(BaseModel):
     is_public: bool = True
     is_active: bool = True
     display_order: Optional[int] = 0
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, v):
+        return validate_name(v)
+
+    @field_validator("slug", mode="before")
+    @classmethod
+    def validate_slug(cls, v):
+        if v is None:
+            return v
+        return validate_slug(v)
 
 
 def _serialize(t: Technology) -> dict:

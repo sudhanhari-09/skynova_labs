@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { PageHeader, StatusBadge, Spinner, StateError, Alert, Input, Label, Select, Button } from "../../components/ui"
 import { getQuoteRequest, updateQuoteRequest, QuoteRequest } from "../../services/api"
+import { formatDateTime } from "../../utils/date"
 
 const STATUS_OPTIONS = ["NEW", "CONTACTED", "QUOTED", "QUALIFIED", "WON", "LOST"]
 
@@ -26,18 +27,18 @@ const QuoteRequestDetail: React.FC = () => {
       setRequest(data)
       setStatus(data.status)
     } catch (e: any) {
-      setError(e.message || "Could not load quote request.")
+      setError("This quote request could not be found.")
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    if (Number.isNaN(id)) {
+    if (!Number.isNaN(id) && id > 0) {
+      load()
+    } else {
       navigate("/admin/quote-requests", { replace: true })
-      return
     }
-    load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
@@ -95,7 +96,7 @@ const QuoteRequestDetail: React.FC = () => {
                 </div>
                 <div className="flex justify-between px-5 py-3 text-sm">
                   <dt className="text-gray-500">Created</dt>
-                  <dd className="font-medium text-gray-900">{new Date(request.created_at).toLocaleString()}</dd>
+                  <dd className="font-medium text-gray-900">{formatDateTime(request.created_at)}</dd>
                 </div>
               </dl>
             </div>

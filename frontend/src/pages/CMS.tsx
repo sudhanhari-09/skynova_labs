@@ -95,8 +95,8 @@ const CMS: React.FC = () => {
 
   const [confirm, setConfirm] = useState<{ type: "page" | "post" | "section"; id: number; label: string } | null>(null)
 
-  const loadPages = useCallback(() => fetchAdminPages().then(setPages).catch((e) => setError(e.message)), [])
-  const loadPosts = useCallback(() => fetchAdminBlog().then(setPosts).catch((e) => setError(e.message)), [])
+  const loadPages = useCallback(() => fetchAdminPages().then(setPages).catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load pages.")), [])
+  const loadPosts = useCallback(() => fetchAdminBlog().then(setPosts).catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load posts.")), [])
   useEffect(() => { loadPages() }, [loadPages])
   useEffect(() => { loadPosts() }, [loadPosts])
 

@@ -116,7 +116,7 @@ def upgrade():
         sa.Column('title', sa.String(), nullable=False),
         sa.Column('version', sa.String(), nullable=False, server_default='1'),
         sa.Column('status', sa.String(), nullable=False, server_default='DRAFT'),
-        sa.Column('currency', sa.String(), nullable=False, server_default='USD'),
+        sa.Column('currency', sa.String(), nullable=False, server_default='INR'),
         sa.Column('subtotal', sa.Numeric(precision=14, scale=2), default=0, nullable=False),
         sa.Column('discount_type', sa.String(), nullable=False, server_default='percentage'),
         sa.Column('discount', sa.Numeric(precision=14, scale=2), default=0, nullable=False),

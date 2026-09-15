@@ -1,8 +1,9 @@
-import React, { useState } from "react"
+﻿import React, { useState } from "react"
 import { Link } from "react-router-dom"
 import { usePageMeta } from "../hooks/usePageMeta"
 import { submitStartProject } from "../services/api"
 import { Button, Input, Label, Textarea, FieldError, Alert, Spinner } from "../components/ui"
+import { validateBudget, validateTimeline } from "../utils/validation"
 
 type FormErrors = Record<string, string>
 
@@ -47,6 +48,14 @@ const StartAProject: React.FC = () => {
     if (!form.phone.trim()) e.phone = "Please enter your phone number."
     else if (!/^[+]?[\d\s\-().]{7,20}$/.test(form.phone.trim())) e.phone = "Please enter a valid phone number."
     if (!form.idea.trim()) e.idea = "Please describe your idea."
+    if (form.budget.trim()) {
+      const r = validateBudget(form.budget)
+      if (!r.valid) e.budget = r.error || "Please enter a valid budget amount in INR."
+    }
+    if (form.timeline.trim()) {
+      const r = validateTimeline(form.timeline)
+      if (!r.valid) e.timeline = r.error || "Please enter a valid timeline in months."
+    }
     return e
   }
 
@@ -75,9 +84,10 @@ const StartAProject: React.FC = () => {
       })
       setSubmitted(true)
       return res
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to submit project."
       setSubmitError(
-        `${err.message || "There was a problem submitting your project intake."} This intake channel is not yet accepting submissions. Please use Get a Quote or Collaborate to reach our team.`
+        `${message} This intake channel is not yet accepting submissions. Please use Get a Quote or Collaborate to reach our team.`
       )
     } finally {
       setSubmitting(false)
@@ -86,7 +96,7 @@ const StartAProject: React.FC = () => {
 
   if (submitted) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+      <div className="max-w-2xl mx-auto site-container py-16 text-center">
         <div className="bg-white rounded-lg shadow p-10">
           <div className="text-4xl mb-3" aria-hidden="true">🚀</div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Idea Received</h1>
@@ -105,7 +115,7 @@ const StartAProject: React.FC = () => {
   }
 
   return (
-    <main id="main" className="max-w-3xl mx-auto px-4 py-14">
+    <main id="main" className="max-w-3xl mx-auto site-container py-14">
       <h1 className="text-3xl font-bold text-gray-900 mb-2">Start a Project</h1>
       <p className="text-gray-600 mb-8">
         You have an idea and need discovery. Tell us about it and we'll help scope it from first principles.
@@ -178,12 +188,14 @@ const StartAProject: React.FC = () => {
               <Input id="preferred_technology" name="preferred_technology" value={form.preferred_technology} onChange={handleChange} placeholder="e.g. Web app, IoT…" />
             </div>
             <div>
-              <Label htmlFor="budget">Budget (if known)</Label>
-              <Input id="budget" name="budget" value={form.budget} onChange={handleChange} placeholder="e.g. $10k–$30k" />
+              <Label htmlFor="budget">Budget (INR)</Label>
+              <Input id="budget" name="budget" value={form.budget} onChange={handleChange} placeholder="e.g. 50000" invalid={!!errors.budget} />
+              <FieldError>{errors.budget}</FieldError>
             </div>
             <div>
-              <Label htmlFor="timeline">Timeline</Label>
-              <Input id="timeline" name="timeline" value={form.timeline} onChange={handleChange} placeholder="e.g. 2–4 months" />
+              <Label htmlFor="timeline">Timeline (months)</Label>
+              <Input id="timeline" name="timeline" value={form.timeline} onChange={handleChange} placeholder="e.g. 3" invalid={!!errors.timeline} />
+              <FieldError>{errors.timeline}</FieldError>
             </div>
           </div>
         </fieldset>

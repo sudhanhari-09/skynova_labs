@@ -3,6 +3,7 @@ import { useAuth } from "../../store/authStore"
 import { Table, TableHeader, TableRow, TableCell, Button, Badge, Spinner, EmptyState, StateError, StatusBadge, TableHead } from "../../components/ui"
 import { useParams, useNavigate } from "react-router-dom"
 import { listQuotations, getQuotation } from "../../services/api"
+import { fmtMoney } from "../../utils/currency"
 
 const QuotationsList: React.FC = () => {
   const { isAuthenticated } = useAuth()
@@ -128,7 +129,7 @@ const QuotationsList: React.FC = () => {
                     <TableCell>{q.contact?.company_name || "â€”"}</TableCell>
                     <TableCell>{q.version}</TableCell>
                     <TableCell>{statusBadge}</TableCell>
-                    <TableCell>{q.total ? `$${q.total}` : "$â€”"}</TableCell>
+                    <TableCell>{q.total ? fmtMoney(Number(q.total)) : "\u2014"}</TableCell>
                     <TableCell>{validityText}</TableCell>
                     <TableCell>
                       <Button

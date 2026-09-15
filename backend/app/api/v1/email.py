@@ -1,7 +1,7 @@
 """Email templates + delivery logs (spec §44 notification → email integration)."""
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -10,6 +10,7 @@ from app.api.deps import get_current_user_dict
 from app.models.spec import EmailTemplate, EmailLog
 from app.services.email_service import send_email
 from app.services.audit import log_action
+from app.services.validation import validate_name, validate_email_field
 
 
 router = APIRouter(prefix="/admin/email", tags=["email"])
@@ -26,12 +27,27 @@ class TemplatePayload(BaseModel):
     variables: Optional[List[str]] = None
     is_active: bool = True
 
+    @field_validator("name")
+    @classmethod
+    def validate_name_field(cls, v: str) -> str:
+        return validate_name(v)
+
+    @field_validator("subject")
+    @classmethod
+    def validate_subject_field(cls, v: str) -> str:
+        return validate_name(v)
+
 
 class SendEmailPayload(BaseModel):
     recipient: str
     subject: str
     body: str
     template_slug: Optional[str] = None
+
+    @field_validator("recipient")
+    @classmethod
+    def validate_recipient(cls, v: str) -> str:
+        return validate_email_field(v)
 
 
 def _slugify(text: str) -> str:

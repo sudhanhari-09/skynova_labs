@@ -1,5 +1,6 @@
 import React from "react"
 import { RouterProvider, createBrowserRouter } from "react-router-dom"
+import { ErrorBoundary } from "./components/ErrorBoundary"
 import PublicLayout from "./layouts/PublicLayout"
 import AdminLayout from "./layouts/AdminLayout"
 import Home from "./pages/Home"
@@ -164,7 +165,9 @@ const router = createBrowserRouter([
 function App() {
   return (
     <AuthProvider>
-      <RouterProvider router={router} />
+      <ErrorBoundary>
+        <RouterProvider router={router} />
+      </ErrorBoundary>
     </AuthProvider>
   )
 }

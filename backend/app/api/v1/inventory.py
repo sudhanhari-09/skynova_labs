@@ -4,7 +4,7 @@ Movements are immutable ledger entries that adjust component stock levels.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -12,6 +12,7 @@ from app.db import get_db
 from app.api.deps import get_current_user_dict
 from app.models.spec import ComponentItem, Supplier, InventoryMovement, ProjectComponent
 from app.services.audit import log_action
+from app.services.validation import validate_name, validate_email_field, validate_phone
 
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
@@ -30,6 +31,23 @@ class SupplierPayload(BaseModel):
     status: str = "ACTIVE"
     notes: Optional[str] = None
 
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, v):
+        return validate_name(v)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_email(cls, v):
+        if v is None:
+            return v
+        return validate_email_field(v)
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def validate_phone_number(cls, v):
+        return validate_phone(v)
+
 
 class ComponentPayload(BaseModel):
     sku: str
@@ -39,8 +57,8 @@ class ComponentPayload(BaseModel):
     model_no: Optional[str] = None
     description: Optional[str] = None
     supplier_id: Optional[int] = None
-    purchase_price: float = 0
-    selling_price: float = 0
+    purchase_price: float = Field(..., ge=0)
+    selling_price: float = Field(..., ge=0)
     current_stock: int = 0
     minimum_stock: int = 0
     unit: str = "unit"
@@ -51,12 +69,17 @@ class ComponentPayload(BaseModel):
     notes: Optional[str] = None
     status: str = "ACTIVE"
 
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, v):
+        return validate_name(v)
+
 
 class MovementPayload(BaseModel):
     component_id: int
     movement_type: str
     quantity: int
-    unit_cost: Optional[float] = None
+    unit_cost: Optional[float] = Field(None, ge=0)
     project_id: Optional[int] = None
     reference_number: Optional[str] = None
     note: Optional[str] = None

@@ -41,7 +41,7 @@ const Submissions: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    load().catch((e) => setError(e.message))
+    load().catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load submissions."))
   }, [load])
 
   const formTypeBadge = (t: string) => {

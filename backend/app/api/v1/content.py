@@ -2,7 +2,7 @@
 navigation items (spec §34 / §66 content domains)."""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -12,6 +12,7 @@ from app.models.spec import (
     Faq, Testimonial, TeamMember, Partner, Achievement, NavigationItem,
 )
 from app.services.audit import log_action
+from app.services.validation import validate_name
 
 
 router = APIRouter(prefix="/content", tags=["content"])
@@ -185,6 +186,11 @@ class TestimonialPayload(BaseModel):
     display_order: Optional[int] = 0
     is_published: bool = True
 
+    @field_validator("name")
+    @classmethod
+    def validate_name_field(cls, v: str) -> str:
+        return validate_name(v)
+
 
 @router.get("/testimonials")
 def list_testimonials(db: Session = Depends(get_db)):
@@ -244,6 +250,11 @@ class TeamPayload(BaseModel):
     display_order: Optional[int] = 0
     is_published: bool = True
 
+    @field_validator("name")
+    @classmethod
+    def validate_name_field(cls, v: str) -> str:
+        return validate_name(v)
+
 
 @router.get("/team")
 def list_team(db: Session = Depends(get_db)):
@@ -300,6 +311,11 @@ class PartnerPayload(BaseModel):
     partner_type: Optional[str] = None
     display_order: Optional[int] = 0
     is_published: bool = True
+
+    @field_validator("name")
+    @classmethod
+    def validate_name_field(cls, v: str) -> str:
+        return validate_name(v)
 
 
 @router.get("/partners")
@@ -359,6 +375,11 @@ class AchievementPayload(BaseModel):
     is_featured: bool = False
     display_order: Optional[int] = 0
     is_published: bool = True
+
+    @field_validator("title")
+    @classmethod
+    def validate_title_field(cls, v: str) -> str:
+        return validate_name(v)
 
 
 @router.get("/achievements")

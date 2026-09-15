@@ -12,7 +12,14 @@ from datetime import datetime
 from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.services.validation import (
+    validate_name,
+    validate_email_field,
+    validate_phone,
+    validate_slug,
+)
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -48,6 +55,18 @@ class ClientCreate(BaseModel):
     notes: Optional[str] = None
     status: str = "ACTIVE"
 
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_email(cls, v):
+        if v is None:
+            return v
+        return validate_email_field(v)
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def validate_phone_number(cls, v):
+        return validate_phone(v)
+
 
 class ClientUpdate(BaseModel):
     name: Optional[str] = None
@@ -59,6 +78,20 @@ class ClientUpdate(BaseModel):
     website: Optional[str] = None
     notes: Optional[str] = None
     status: Optional[str] = None
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_email(cls, v):
+        if v is None:
+            return v
+        return validate_email_field(v)
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def validate_phone_number(cls, v):
+        if v is None:
+            return v
+        return validate_phone(v)
 
 
 class ClientResponse(CatalogItem):
@@ -85,7 +118,7 @@ class ServiceCreate(BaseModel):
     slug: str = Field(..., min_length=1, max_length=200)
     description: Optional[str] = None
     category: Optional[str] = None
-    starting_price: float = 0
+    starting_price: float = Field(..., ge=0)
     pricing_model: Optional[str] = None
     features: Optional[Any] = None
     technologies: Optional[Any] = None
@@ -95,13 +128,23 @@ class ServiceCreate(BaseModel):
     is_active: bool = True
     display_order: int = 0
 
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, v):
+        return validate_name(v)
+
+    @field_validator("slug", mode="before")
+    @classmethod
+    def validate_slug(cls, v):
+        return validate_slug(v)
+
 
 class ServiceUpdate(BaseModel):
     name: Optional[str] = None
     slug: Optional[str] = None
     description: Optional[str] = None
     category: Optional[str] = None
-    starting_price: Optional[float] = None
+    starting_price: Optional[float] = Field(None, ge=0)
     pricing_model: Optional[str] = None
     features: Optional[Any] = None
     technologies: Optional[Any] = None
@@ -110,6 +153,20 @@ class ServiceUpdate(BaseModel):
     is_public: Optional[bool] = None
     is_active: Optional[bool] = None
     display_order: Optional[int] = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, v):
+        if v is None:
+            return v
+        return validate_name(v)
+
+    @field_validator("slug", mode="before")
+    @classmethod
+    def validate_slug(cls, v):
+        if v is None:
+            return v
+        return validate_slug(v)
 
 
 class ServiceResponse(CatalogItem):
@@ -145,6 +202,16 @@ class TechnologyCreate(BaseModel):
     is_public: bool = True
     is_active: bool = True
     display_order: int = 0
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, v):
+        return validate_name(v)
+
+    @field_validator("slug", mode="before")
+    @classmethod
+    def validate_slug(cls, v):
+        return validate_slug(v)
 
 
 class TechnologyUpdate(BaseModel):
@@ -190,6 +257,16 @@ class IndustryCreate(BaseModel):
     is_active: bool = True
     display_order: int = 0
 
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, v):
+        return validate_name(v)
+
+    @field_validator("slug", mode="before")
+    @classmethod
+    def validate_slug(cls, v):
+        return validate_slug(v)
+
 
 class IndustryUpdate(BaseModel):
     name: Optional[str] = None
@@ -232,8 +309,8 @@ class ComponentCreate(BaseModel):
     model_no: Optional[str] = None
     description: Optional[str] = None
     supplier_id: Optional[int] = None
-    purchase_price: float = 0
-    selling_price: float = 0
+    purchase_price: float = Field(..., ge=0)
+    selling_price: float = Field(..., ge=0)
     current_stock: int = 0
     minimum_stock: int = 0
     unit: str = "unit"
@@ -253,8 +330,8 @@ class ComponentUpdate(BaseModel):
     model_no: Optional[str] = None
     description: Optional[str] = None
     supplier_id: Optional[int] = None
-    purchase_price: Optional[float] = None
-    selling_price: Optional[float] = None
+    purchase_price: Optional[float] = Field(None, ge=0)
+    selling_price: Optional[float] = Field(None, ge=0)
     current_stock: Optional[int] = None
     minimum_stock: Optional[int] = None
     unit: Optional[str] = None
@@ -306,6 +383,18 @@ class SupplierCreate(BaseModel):
     status: str = "ACTIVE"
     notes: Optional[str] = None
 
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_email(cls, v):
+        if v is None:
+            return v
+        return validate_email_field(v)
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def validate_phone_number(cls, v):
+        return validate_phone(v)
+
 
 class SupplierUpdate(BaseModel):
     name: Optional[str] = None
@@ -318,6 +407,20 @@ class SupplierUpdate(BaseModel):
     purchase_history: Optional[Any] = None
     status: Optional[str] = None
     notes: Optional[str] = None
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_email(cls, v):
+        if v is None:
+            return v
+        return validate_email_field(v)
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def validate_phone_number(cls, v):
+        if v is None:
+            return v
+        return validate_phone(v)
 
 
 class SupplierResponse(CatalogItem):
@@ -344,7 +447,7 @@ class InventoryMovementCreate(BaseModel):
     component_id: int = Field(...)
     movement_type: str = "IN"
     quantity: int = 0
-    unit_cost: Optional[float] = None
+    unit_cost: Optional[float] = Field(None, ge=0)
     project_id: Optional[int] = None
     reference_number: Optional[str] = None
     note: Optional[str] = None
@@ -355,7 +458,7 @@ class InventoryMovementUpdate(BaseModel):
     component_id: Optional[int] = None
     movement_type: Optional[str] = None
     quantity: Optional[int] = None
-    unit_cost: Optional[float] = None
+    unit_cost: Optional[float] = Field(None, ge=0)
     project_id: Optional[int] = None
     reference_number: Optional[str] = None
     note: Optional[str] = None
@@ -382,7 +485,7 @@ class InventoryMovementResponse(CatalogItem):
 
 class ExpenseCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=300)
-    amount: float = 0
+    amount: float = Field(..., ge=0)
     category: Optional[str] = None
     project_id: Optional[int] = None
     incurred_at: Optional[datetime] = None
@@ -392,7 +495,7 @@ class ExpenseCreate(BaseModel):
 
 class ExpenseUpdate(BaseModel):
     title: Optional[str] = None
-    amount: Optional[float] = None
+    amount: Optional[float] = Field(None, ge=0)
     category: Optional[str] = None
     project_id: Optional[int] = None
     incurred_at: Optional[datetime] = None

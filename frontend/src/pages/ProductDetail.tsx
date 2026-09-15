@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react"
+﻿import React, { useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { usePageMeta } from "../hooks/usePageMeta"
 import { fetchPublicProductBySlug, PublicProduct } from "../services/api"
@@ -33,7 +33,7 @@ const ProductDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-20">
+      <div className="max-w-4xl mx-auto site-container py-20">
         <Spinner className="mx-auto" label="Loading product…" />
       </div>
     )
@@ -41,7 +41,7 @@ const ProductDetail: React.FC = () => {
 
   if (error || !product) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-20">
+      <div className="max-w-3xl mx-auto site-container py-20">
         <StateError message={error || "This product could not be found."} onRetry={() => window.location.reload()} />
         <div className="text-center mt-4">
           <Link to="/products" className="btn-secondary inline-flex items-center gap-1">
@@ -53,7 +53,7 @@ const ProductDetail: React.FC = () => {
   }
 
   return (
-    <main id="main" className="max-w-5xl mx-auto px-4 py-12">
+    <main id="main" className="max-w-5xl mx-auto site-container py-12">
       <Link to="/products" className="btn-link inline-flex items-center gap-1 mb-4">
         <ChevronLeft className="w-4 h-4" aria-hidden="true" /> All products
       </Link>

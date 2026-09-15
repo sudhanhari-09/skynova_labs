@@ -28,7 +28,7 @@ const BuildLog: React.FC = () => {
     setError(null)
     fetchBuildLogEntries()
       .then((data) => active && setEntries(data))
-      .catch((e: any) => active && setError(e.message))
+      .catch((e: unknown) => active && setError(e instanceof Error ? e.message : "Failed to load build log."))
       .finally(() => active && setLoading(false))
     return () => {
       active = false
@@ -36,7 +36,7 @@ const BuildLog: React.FC = () => {
   }, [])
 
   return (
-    <main id="main" className="max-w-6xl mx-auto px-4 py-16">
+    <main id="main" className="max-w-6xl mx-auto site-container py-16">
       <h1 className="text-3xl font-bold text-gray-900 mb-2">Build Log</h1>
       <p className="text-gray-600 mb-8 max-w-3xl">
         Real development progress from inside the lab — what we're building, breaking and learning.

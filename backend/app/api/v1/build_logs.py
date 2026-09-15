@@ -1,7 +1,7 @@
 """Build logs (spec §3 project provenance) with public + admin endpoints."""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -9,6 +9,7 @@ from app.db import get_db
 from app.api.deps import get_current_user_dict
 from app.models.spec import BuildLog
 from app.services.audit import log_action
+from app.services.validation import validate_name
 
 
 router = APIRouter(prefix="/build-logs", tags=["build-logs"])
@@ -23,6 +24,11 @@ class BuildLogPayload(BaseModel):
     technologies: Optional[List[str]] = None
     is_public: bool = True
     entry_type: str = "PROGRESS"
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, v):
+        return validate_name(v)
 
 
 def _serialize(b: BuildLog) -> dict:

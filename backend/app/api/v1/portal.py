@@ -9,13 +9,14 @@ from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models.operations import Invoice, InvoiceItem, Payment
 from app.services.notifications import create_notification, dispatch_event
 from app.api.v1.invoices import recompute_totals
+from app.services.validation import validate_email_field
 
 
 router = APIRouter(prefix="/public/invoices", tags=["public-invoices"])
@@ -54,6 +55,13 @@ class PortalPayRequest(BaseModel):
     customer_email: Optional[str] = None
     method: str = "ONLINE"
     metadata: Optional[dict] = None
+
+    @field_validator("customer_email")
+    @classmethod
+    def validate_customer_email(cls, v):
+        if v is None:
+            return v
+        return validate_email_field(v)
 
 
 class PortalPaymentResponse(BaseModel):

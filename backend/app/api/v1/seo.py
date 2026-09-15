@@ -16,6 +16,7 @@ BASE = (settings.frontend_url or "http://localhost:3000").rstrip("/")
 
 
 @router.get("/seo/sitemap.xml", include_in_schema=False)
+@router.get("/sitemap.xml", include_in_schema=False)
 def sitemap(db: Session = Depends(get_db)):
     base = BASE
     urls = [f"{base}/"]

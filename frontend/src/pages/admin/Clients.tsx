@@ -49,7 +49,7 @@ const Clients: React.FC = () => {
   const [form, setForm] = useState({ name: "", company: "", email: "", phone: "", status: "ACTIVE" })
 
   const load = useCallback(() => {
-    fetchClients(search || undefined, statusFilter || undefined).then(setClients).catch((e) => setError(e.message))
+    fetchClients(search || undefined, statusFilter || undefined).then(setClients).catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load clients."))
   }, [search, statusFilter])
 
   useEffect(() => { load() }, [load])
@@ -58,6 +58,8 @@ const Clients: React.FC = () => {
     e.preventDefault()
     if (!form.name.trim()) return
     if (!form.phone.trim()) return
+    if (!/^[+]?[\d\s\-().]{7,20}$/.test(form.phone.trim())) return
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return
     run(async () => {
       await createClient(form)
       setForm({ name: "", company: "", email: "", phone: "", status: "ACTIVE" })

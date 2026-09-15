@@ -2,7 +2,7 @@
 admin CRUD."""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -10,6 +10,7 @@ from app.db import get_db
 from app.api.deps import get_current_user_dict
 from app.models.spec import Service
 from app.services.audit import log_action
+from app.services.validation import validate_name, validate_slug
 
 
 router = APIRouter(prefix="/services", tags=["services"])
@@ -21,7 +22,7 @@ class ServicePayload(BaseModel):
     slug: Optional[str] = None
     description: Optional[str] = None
     category: Optional[str] = None
-    starting_price: Optional[float] = None
+    starting_price: Optional[float] = Field(None, ge=0)
     pricing_model: Optional[str] = None
     features: Optional[List[str]] = None
     technologies: Optional[List[str]] = None
@@ -30,6 +31,18 @@ class ServicePayload(BaseModel):
     is_public: bool = True
     is_active: bool = True
     display_order: Optional[int] = 0
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, v):
+        return validate_name(v)
+
+    @field_validator("slug", mode="before")
+    @classmethod
+    def validate_slug(cls, v):
+        if v is None:
+            return v
+        return validate_slug(v)
 
 
 def _serialize(s: Service) -> dict:

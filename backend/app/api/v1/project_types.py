@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.db import get_db
 from app.models.auth import ProjectType, ProjectSubcategory
-from pydantic import BaseModel, Field
+from app.services.validation import validate_slug
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 
 
@@ -28,6 +29,11 @@ class ProjectTypeCreate(BaseModel):
     is_active: bool = True
     display_order: int = 0
 
+    @field_validator("slug")
+    @classmethod
+    def validate_slug_field(cls, v):
+        return validate_slug(v)
+
 
 class ProjectTypeUpdate(BaseModel):
     name: Optional[str] = None
@@ -41,6 +47,11 @@ class SubcategoryCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     slug: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = None
+
+    @field_validator("slug")
+    @classmethod
+    def validate_slug_field(cls, v):
+        return validate_slug(v)
 
 
 class ProjectSubcategoryResponse(BaseModel):

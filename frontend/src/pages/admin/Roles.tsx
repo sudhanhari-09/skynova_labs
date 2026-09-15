@@ -37,7 +37,7 @@ const Roles: React.FC = () => {
         setPermissions(p)
         setSelectedId((cur) => cur ?? r[0]?.id ?? null)
       })
-      .catch((e) => setError(e.message))
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load roles."))
   }, [])
 
   useEffect(() => { load() }, [load])

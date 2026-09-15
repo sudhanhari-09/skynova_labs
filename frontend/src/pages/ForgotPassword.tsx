@@ -16,8 +16,8 @@ const ForgotPassword: React.FC = () => {
     try {
       const res = await forgotPassword(email)
       setNotice(res.detail || "If that email is registered, a reset link has been sent.")
-    } catch (err: any) {
-      setError(err.message || "Something went wrong")
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Something went wrong")
     } finally {
       setLoading(false)
     }

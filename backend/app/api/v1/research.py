@@ -1,14 +1,44 @@
 """Research projects (spec §40 R&D pipeline) with public + admin endpoints."""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
+import re
 
 from app.db import get_db
 from app.api.deps import get_current_user_dict
 from app.models.spec import ResearchProject
 from app.services.audit import log_action
+from app.services.validation import validate_name, validate_slug
+
+
+# ── Date validation ──────────────────────────────────────────────
+_DATE_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
+
+
+def _validate_yyyy_mm_dd_date(value: object) -> object:
+    """Validate a date value is in strict YYYY-MM-DD format with exact 4-digit year."""
+    if value is None or value == "":
+        return value
+    if isinstance(value, str):
+        m = _DATE_RE.match(value.strip())
+        if not m:
+            raise ValueError("Please enter a valid date in YYYY-MM-DD format.")
+        year_s, month_s, day_s = m.group(1), m.group(2), m.group(3)
+        year, month, day = int(year_s), int(month_s), int(day_s)
+        if month < 1 or month > 12:
+            raise ValueError("Please enter a valid date.")
+        days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        if (year % 4 == 0 and year % 100 != 0) or year % 400 == 0:
+            days_in_month[1] = 29
+        if day < 1 or day > days_in_month[month - 1]:
+            raise ValueError("Please enter a valid date.")
+    elif isinstance(value, datetime):
+        pass
+    else:
+        raise ValueError("Please enter a valid date in YYYY-MM-DD format.")
+    return value
 
 
 router = APIRouter(prefix="/research", tags=["research"])
@@ -29,12 +59,29 @@ class ResearchPayload(BaseModel):
     researchers: Optional[List[dict]] = None
     publication_links: Optional[List[str]] = None
     status: str = "PROPOSED"
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
+    start_date: Optional[datetime] = Field(None, description="Start date in YYYY-MM-DD format or ISO datetime")
+    end_date: Optional[datetime] = Field(None, description="End date in YYYY-MM-DD format or ISO datetime")
     is_public: bool = True
     related_project_ids: Optional[List[int]] = None
     related_experiment_ids: Optional[List[int]] = None
     related_product_ids: Optional[List[int]] = None
+
+    @field_validator("start_date", "end_date", mode="before")
+    @classmethod
+    def validate_date_fields(cls, v: object) -> object:
+        return _validate_yyyy_mm_dd_date(v)
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, v):
+        return validate_name(v)
+
+    @field_validator("slug")
+    @classmethod
+    def validate_slug_field(cls, v):
+        if v is None:
+            return v
+        return validate_slug(v)
 
 
 def _serialize(r: ResearchProject) -> dict:

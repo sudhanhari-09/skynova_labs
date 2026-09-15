@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../store/authStore"
 import { Button, Input, Label } from "../components/ui"
 import Logo from "../components/Logo"
+import { validateEmail } from "../utils/validation"
 
 const ADMIN_EMAIL = "hariharasudhan.s@care.ac.in"
 
@@ -16,6 +17,13 @@ const Login: React.FC = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+
+    const emailResult = validateEmail(email)
+    if (!emailResult.valid) {
+      setError(emailResult.error || "Please enter a valid email address.")
+      return
+    }
+
     try {
       await login(email, password)
       if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
@@ -23,8 +31,8 @@ const Login: React.FC = () => {
       } else {
         navigate("/user-panel", { replace: true })
       }
-    } catch (err: any) {
-      setError(err.message || "Login failed")
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Login failed")
     }
   }
 

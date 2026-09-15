@@ -2,25 +2,36 @@
 
 Shared team calendar: events can be linked to projects, leads, tickets and
 invoices.
+
+Date handling: every `starts_at` / `ends_at` supplied by an admin client is
+re-validated with the strict calendar rules in `app.services.validation`
+(real YYYY-MM-DD dates, exactly 4-digit years, leap years respected) before it
+ever reaches the database.
 """
 from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.api.deps import get_current_user, require_feature
 from app.models.auth import User
 from app.models.operations import CalendarEvent
+from app.services.validation import (
+    validate_calendar_datetime,
+    validate_event_title,
+    validate_optional_text,
+)
 
 
 router = APIRouter(prefix="/admin/calendar", tags=["admin-calendar"])
 
 
 class CalendarEventCreate(BaseModel):
-    title: str = Field(..., min_length=1)
+    title: str = Field(..., min_length=1, max_length=200)
     description: Optional[str] = None
     event_type: str = "MEETING"
     starts_at: datetime
@@ -30,6 +41,26 @@ class CalendarEventCreate(BaseModel):
     participant_ids: Optional[List[int]] = None
     related_entity: Optional[str] = None
     related_id: Optional[int] = None
+
+    @field_validator("title")
+    @classmethod
+    def _check_title(cls, v: str) -> str:
+        return validate_event_title(v)
+
+    @field_validator("description", "location", mode="before")
+    @classmethod
+    def _normalize_optional_text(cls, v):
+        return validate_optional_text(v)
+
+    @field_validator("starts_at", mode="before")
+    @classmethod
+    def _check_starts_at(cls, v):
+        return validate_calendar_datetime(v, field="start date", required=True)
+
+    @field_validator("ends_at", mode="before")
+    @classmethod
+    def _check_ends_at(cls, v):
+        return validate_calendar_datetime(v, field="end date", required=False)
 
 
 class CalendarEventUpdate(BaseModel):
@@ -43,6 +74,31 @@ class CalendarEventUpdate(BaseModel):
     participant_ids: Optional[List[int]] = None
     related_entity: Optional[str] = None
     related_id: Optional[int] = None
+
+    @field_validator("title")
+    @classmethod
+    def _check_title(cls, v):
+        if v is None:
+            return None
+        return validate_event_title(v)
+
+    @field_validator("description", "location", mode="before")
+    @classmethod
+    def _normalize_optional_text(cls, v):
+        return validate_optional_text(v)
+
+    @field_validator("starts_at", mode="before")
+    @classmethod
+    def _check_starts_at(cls, v):
+        # A start date is never nullable once an event exists, so `null` is
+        # rejected here instead of reaching the database as a NOT NULL error.
+        return validate_calendar_datetime(v, field="start date", required=True)
+
+    @field_validator("ends_at", mode="before")
+    @classmethod
+    def _check_ends_at(cls, v):
+        return validate_calendar_datetime(v, field="end date", required=False)
+
 
 
 class CalendarEventResponse(BaseModel):
@@ -127,11 +183,31 @@ def list_events(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_feature("calendar")),
 ):
+    """List calendar events, optionally restricted to a date window.
+
+    `start` / `end` filter `starts_at` (unchanged behaviour). When both bounds
+    are supplied, multi-day events that *overlap* the window are included as
+    well — an event that starts before the window but is still running inside
+    it must remain visible on the month grid. Single-day events (no `ends_at`)
+    are unaffected.
+    """
     query = db.query(CalendarEvent)
-    if start:
-        query = query.filter(CalendarEvent.starts_at >= start)
-    if end:
-        query = query.filter(CalendarEvent.starts_at <= end)
+    if start and end:
+        query = query.filter(
+            or_(
+                and_(CalendarEvent.starts_at >= start, CalendarEvent.starts_at <= end),
+                and_(
+                    CalendarEvent.ends_at.isnot(None),
+                    CalendarEvent.starts_at <= end,
+                    CalendarEvent.ends_at >= start,
+                ),
+            )
+        )
+    else:
+        if start:
+            query = query.filter(CalendarEvent.starts_at >= start)
+        if end:
+            query = query.filter(CalendarEvent.starts_at <= end)
     if event_type:
         query = query.filter(CalendarEvent.event_type == event_type)
     if related_entity:

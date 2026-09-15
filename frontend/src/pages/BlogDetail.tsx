@@ -46,7 +46,7 @@ const BlogDetail: React.FC = () => {
           })
           .catch(() => {})
       })
-      .catch((e) => setError(e.message))
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load article."))
   }, [slug])
 
   if (error) {
